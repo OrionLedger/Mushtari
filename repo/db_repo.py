@@ -1,6 +1,6 @@
 from .. import Mongo_DB_Module
 
-class DB_Repo:
+class DBRepo:
     def __init__(self, db_module = Mongo_DB_Module()):
         self.db_module = db_module
 
