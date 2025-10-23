@@ -1,10 +1,9 @@
 from pymongo import MongoClient
-from domain import IDB_Initializer
 from infrastructure.logging.logger import get_logger
 
 logger = get_logger(__name__) #Set up logging for the module
 
-class Mongo_DB_Module(IDB_Initializer):
+class Mongo_DB_Module:
     def __init__(self, uri, db_name):
         self.uri = uri
         self.db_name = db_name
