@@ -1,0 +1,1 @@
+from stratigies.comtrade_api import CTALStrategy
