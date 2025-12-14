@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 import pandas as pd
 import matplotlib as plt
 
-def train_xg_boost_forecaster(X_train, y_train, X_eval, y_eval, X_test, y_test ,
+def train_xg_boost_regressor(X_train, y_train, X_eval, y_eval, X_test, y_test ,
                             estimators=100, 
                             max_depth=5, 
                             learning_rate=0.1
