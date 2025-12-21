@@ -1,6 +1,10 @@
 pymongo
 logging
 requests
+<<<<<<< HEAD
+=======
+pandas
+>>>>>>> 3f4242d23d83d9107aba575cd2f2f53f9bff95a3
 numpy
 pmdarima
 statsmodels
