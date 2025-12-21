@@ -1,10 +1,7 @@
 pymongo
 logging
 requests
-<<<<<<< HEAD
 pandas
-=======
 numpy
 pmdarima
 statsmodels
->>>>>>> tamer
