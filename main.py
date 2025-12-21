@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # from infrastructure import Mongo_DB_Module
 
 # db = Mongo_DB_Module(
@@ -25,3 +26,5 @@ mydf = comtradeapicall.previewFinalData(typeCode='C', freqCode='M', clCode='HS',
 print(mydf.columns)
 print(mydf[["cmdCode", "cmdDesc", "primaryValue", "period", "refYear", "refMonth"]])
 print(mydf[["cmdCode", "cmdDesc", "primaryValue", "period", "refYear", "refMonth"]].shape)
+=======
+>>>>>>> tamer
