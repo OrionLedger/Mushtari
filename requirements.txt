@@ -1,3 +1,6 @@
 pymongo
 logging
 requests
+numpy
+pmdarima
+statsmodels
