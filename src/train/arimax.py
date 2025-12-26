@@ -20,7 +20,6 @@ def train_arima_forecaster(y_train, X, n_periods, seasonal=False):
     print ("Model Residuals: ", sm_model.resid())
     print(sm_model.summary())
 
-    # Forecast with pmdarima (correct way)
     y_pred, conf_int = model.predict(n_periods=n_periods, return_conf_int=True)
 
     print("Model Residuals:", model.resid())
