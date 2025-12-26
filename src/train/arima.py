@@ -1,7 +1,7 @@
 import pandas as pd
 from pmdarima import auto_arima
 
-def train_arima_forecaster(y_train, n_periods):
+def train_arima_forecaster(y_train, n_periods, seasonal=False):
     model = auto_arima(
         y=y_train, 
         start_p=0,
@@ -9,7 +9,7 @@ def train_arima_forecaster(y_train, n_periods):
         max_p=5,
         max_q=5,
         max_d=2,
-        seasonal=False,
+        seasonal=seasonal,
         stepwise=True,
         trace=True,
         suppress_warnings=True
