@@ -1,7 +1,7 @@
 import pandas as pd
 from pmdarima import auto_arima
 
-def train_arima_forecaster(y_train, X, n_periods, seasonal=False):
+def train_arimax_forecaster(y_train, X, n_periods, seasonal=False):
     model = auto_arima(
         X=X,
         y=y_train, 
@@ -9,7 +9,7 @@ def train_arima_forecaster(y_train, X, n_periods, seasonal=False):
         start_q=0,
         max_p=5,
         max_q=5,
-        max_d=2,
+        max_d=3,
         seasonal=seasonal,
         stepwise=True,
         trace=True,
@@ -20,7 +20,6 @@ def train_arima_forecaster(y_train, X, n_periods, seasonal=False):
     print ("Model Residuals: ", sm_model.resid())
     print(sm_model.summary())
 
-    # Forecast with pmdarima (correct way)
     y_pred, conf_int = model.predict(n_periods=n_periods, return_conf_int=True)
 
     print("Model Residuals:", model.resid())
