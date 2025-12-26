@@ -2,8 +2,6 @@
 
 # Moshtari
 
-This file provides guidance to WARP (warp.dev) when working with code in this repository.
-
 ## Project Overview
 
 **Moshtari** is an AI/ML pipeline for demand forecasting of products, services, and goods. The system integrates MongoDB for data persistence, multiple forecasting models (ARIMA, ARIMAX, XGBoost, Naive Baseline), and a modular infrastructure for logging and data operations.
@@ -15,15 +13,6 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 pip install -r requirements.txt
 ```
 
-**Note**: `requirements.txt` is incomplete. The project also requires:
-- `loguru` (used in `infrastructure/logging/logger.py`)
-- `pmdarima` (used in `src/train/arima.py`)
-- `xgboost` (used in `src/train/xg_boost.py`)
-- `scikit-learn` (used in `src/train/xg_boost.py`)
-- `pandas` (used in `src/train/xg_boost.py` and `src/train/naive_baseline.py`)
-- `numpy` (used in multiple training modules)
-- `matplotlib` (imported in `src/train/xg_boost.py`)
-
 ### Running the Application
 ```pwsh
 python main.py
@@ -32,7 +21,7 @@ python main.py
 The main script initializes a MongoDB connection, performs basic CRUD operations as a demonstration, and closes the connection.
 
 ### MongoDB Setup
-The project expects MongoDB running locally at `mongodb://127.0.0.1:27017` with database name `orion_ledger`. Ensure MongoDB is running before executing `main.py`.
+The project expects MongoDB running locally at `mongodb://127.0.0.1:27017` with database name `mushtari`. Ensure MongoDB is running before executing `main.py`.
 
 ### Exploratory Work
 Jupyter notebooks for exploratory data analysis are located in `notebooks/exploratory/`. Use these for data exploration and model experimentation.
@@ -70,7 +59,7 @@ Jupyter notebooks for exploratory data analysis are located in `notebooks/explor
 #### ML Models (`src/train/`)
 The project supports multiple forecasting approaches:
 - **ARIMA** (`arima.py`): Auto-tuning ARIMA using `pmdarima.auto_arima` with parameter search (p: 0-5, q: 0-5, d: 0-2)
-- **ARIMAX** (`arimax.py`): Placeholder for ARIMA with exogenous variables (not yet implemented)
+- **ARIMAX** (`arimax.py`): Placeholder for ARIMA with exogenous variables
 - **XGBoost** (`xg_boost.py`): Gradient boosting regressor with MAE objective, configurable estimators/depth/learning rate
 - **Naive Baseline** (`naive_baseline.py`): Simple last-value forecasting for baseline comparison
 
@@ -94,8 +83,8 @@ The project supports multiple forecasting approaches:
 ## Important Notes
 
 ### Database Configuration
-- MongoDB URI and database name are hardcoded in `main.py`. For production use, move to environment variables or configuration files.
-- Default connection: `mongodb://127.0.0.1:27017` with database `orion_ledger`
+- MongoDB URI and database name. For production use, move to environment variables or configuration files.
+- Default connection: `mongodb://127.0.0.1:27017` with database `mushtari`
 
 ### Logging
 - Logs are written to `logs/app.log` with DEBUG level
