@@ -8,7 +8,7 @@ def train_arima_forecaster(y_train, n_periods):
         start_q=0,
         max_p=5,
         max_q=5,
-        max_d=2,
+        max_d=3,
         seasonal=False,
         stepwise=True,
         trace=True,
