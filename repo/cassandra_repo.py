@@ -1,4 +1,4 @@
-from .. import MongoDBModule, CassandraModule
+from .. import CassandraModule
 
 class Cassandra_Repo:
     def __init__(self):
@@ -6,13 +6,13 @@ class Cassandra_Repo:
         self._session = session
         self._cluster = cluster
 
-    # Making new Keyspace
+    # Make or Set new Keyspace
     def set_keyspace(
-                    self,
-                    keyspace = 'demand'
-                    ):
+        self,
+        keyspace = 'demand'
+        ):
         
-        self._session.execute(f"""
+        self._session.execute("""
                 CREATE KEYSPACE IF NOT EXISTS %s
                 WITH replication = {
                     'class': 'NetworkTopologyStrategy',
@@ -22,12 +22,6 @@ class Cassandra_Repo:
 
         self._session.set_keyspace(keyspace)
 
-    # Make new Table in the keyspace
-    def make_table(self,
-                   table_name,
-                   ):
-        
-        self._session.execute("""
-
-        """, [table_name])
+    # Create new Table in the keyspace
+    
 
