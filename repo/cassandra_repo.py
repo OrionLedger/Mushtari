@@ -31,7 +31,6 @@ class CassandraRepository:
 
         columns_cql = ", ".join(columns)
 
-        # Build query dynamically (values are %s placeholders)
         query = f"SELECT {columns_cql} FROM {table_name} WHERE product_id = %s"
         values = [product_id]
 
