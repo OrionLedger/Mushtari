@@ -7,7 +7,7 @@ cas_username = os.getenv("CASSANDEA_USERNAME")
 cas_password = os.getenv("CASSANDRA_PASSWORD")
 
 class CassandraModule:
-    def __init__(   
+    def connect(   
                     self,
                     username = cas_username,
                     password = cas_password, 
@@ -26,7 +26,9 @@ class CassandraModule:
         session = cluster.connect()
         self._session = session
         self._cluster = cluster
-        
-        return (cluster, session)
 
+        return session
+
+    def get_cluster(self):
+        return self._cluster
 
