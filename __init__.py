@@ -1,2 +1,1 @@
-from infrastructure.logging.logger import get_logger
-from infrastructure.configs.mongo_db import Mongo_DB_Module
+from infrastructure import MongoDBModule, CassandraModule
