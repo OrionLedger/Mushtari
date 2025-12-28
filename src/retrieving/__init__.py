@@ -1,1 +1,1 @@
-from connect import connect
+from .get_product_sales import get_product_sales
