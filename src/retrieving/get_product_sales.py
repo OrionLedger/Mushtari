@@ -2,11 +2,11 @@ from . import connect
 from ... import CassandraRepository
 
 def get_product_sales(
-        table_name,
         product_id, 
         columns,
         start_date,
         end_date,
+        table_name='sales',
         repo = CassandraRepository(),
         ):
     if not start_date and not end_date:
