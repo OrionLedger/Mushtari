@@ -2,15 +2,17 @@ from typing import List, Optional
 from datetime import datetime
 from infrastructure.configs.cassandra_db import CassandraModule
 from cassandra.query import SimpleStatement
-class CassandraRepository:
-    """
-    Cassandra repository for interacting with a keyspace.
-    Supports retrieving sales records.
-    """
 
-    def __init__(self):
+class CassandraRepository:
+
+    def __init__(
+            self,
+            username,
+            password,
+            contact_points,
+        ):
         session = CassandraModule()
-        session = session.connect()
+        session = session.connect(username, password, contact_points)
         self._session = session
 
     def set_keyspace(self, keyspace: str):
@@ -18,7 +20,7 @@ class CassandraRepository:
 
     def get_sales_records(
         self,
-        table_name: str,
+        table_name: str = "Sales",
         columns: Optional[List[str]] = None,
         product_id: str = None,
         start_date: Optional[datetime] = None,
