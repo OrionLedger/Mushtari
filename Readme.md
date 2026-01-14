@@ -33,13 +33,17 @@ Jupyter notebooks for exploratory data analysis are located in `notebooks/explor
 
 ```
 ├── infrastructure/       # Core infrastructure components
-│   ├── DB/              # Database modules
+│   ├── config/              # Database modules
 │   ├── logging/         # Logging configuration using loguru
-│   └── utils/           # HTTP request utilities
+│   └── monitoring/           # HTTP request utilities
 ├── repo/                # Repository pattern implementation
 ├── src/                 # Source code for ML models
 │   ├── train/           # Training modules for different models
-│   └── evaluation/      # Model evaluation utilities
+│   ├── evaluation/      # Model evaluation utilities
+|   ├── preprocessing/
+|   ├── retrieving/
+|   ├── features
+|   ├── utils
 ├── notebooks/           # Jupyter notebooks for exploration
 │   ├── exploratory/     # Active exploratory notebooks
 │   └── archived/        # Archived analysis notebooks
@@ -50,12 +54,12 @@ Jupyter notebooks for exploratory data analysis are located in `notebooks/explor
 ### Core Components
 
 #### Infrastructure Layer (`infrastructure/`)
-- **MongoDB Module** (`DB/mongo_db.py`): `Mongo_DB_Module` class handles all database operations (CRUD) with integrated logging
-- **Logger** (`logging/logger.py`): Centralized logging using `loguru` with both console and file output. Logs stored in `logs/` directory with 10MB rotation and 7-day retention
-- **HTTP Utils** (`utils/request.py`): Wrapper functions for GET, POST, PUT, DELETE requests using the `requests` library
+- **MongoDB Module** (`config/mongo_db.py`): `Mongo_DB_Module` class handles all database operations (CRUD) with integrated logging
+- **Cassandra Module** (`config/cassandra_db.py`): `Cassandra_DB_Module` class handles all database operations (CRUD) with integrated logging
+- **Logger** (`logging/logger.py`): Centralized logging using `loguru` with both console and file output. Logs stored in `logs/` directory
 
 #### Repository Pattern (`repo/`)
-- **DBRepo** (`db_repo.py`): Abstraction layer over `Mongo_DB_Module`, providing a clean interface for data operations. Acts as the repository pattern implementation separating data access logic from business logic.
+- **DBRepo** (`mongodb_repo.py`) and (): Abstraction layer over `Mongo_DB_Module`, providing a clean interface for data operations. Acts as the repository pattern implementation separating data access logic from business logic.
 
 #### ML Models (`src/train/`)
 The project supports multiple forecasting approaches:
@@ -69,14 +73,14 @@ The project supports multiple forecasting approaches:
 
 ### Data Flow
 
-1. **Data Ingestion**: Data is expected to be collected and stored in MongoDB via the `Mongo_DB_Module` or `DBRepo`
-2. **Model Training**: Training scripts in `src/train/` consume data and produce forecasting models
+1. **Data Ingestion**: Data is expected to be collected and stored.
+2. **Model Training**: Training scripts in `src/train/` consume data and produce forecasting / predicting models
 3. **Persistence**: Models and data operations are logged via the centralized logger
 4. **Evaluation**: Models should be evaluated using metrics from `src/evaluation/` (to be implemented)
 
 ### Key Design Patterns
 
-- **Repository Pattern**: `DBRepo` abstracts database operations from business logic
+- **Repository Pattern**: `DBRepo` abstracts database operations
 - **Dependency Injection**: `DBRepo` accepts a `db_module` parameter allowing different DB implementations
 - **Centralized Logging**: All modules use `get_logger(__name__)` from `infrastructure/logging/logger.py`
 - **Module Isolation**: Infrastructure, data access, and ML models are separated into distinct layers
@@ -84,8 +88,9 @@ The project supports multiple forecasting approaches:
 ## Important Notes
 
 ### Database Configuration
-- MongoDB URI and database name. For production use, move to environment variables or configuration files.
-- Default connection: `mongodb://127.0.0.1:27017` with database `mushtari`
+- MongoDB URI and database name. For production use, move to environment variables or configuration files. Default connection: `mongodb://127.0.0.1:27017` with database `mushtari` (Deprecated)
+
+- CassandraDB URI and keyspace name. which by default use 3 sepereated replicas each on different machine/container/ ... etc on the same network, needs a password and a username which can be setted as environment variables, and need to set a keyspace to operate on.
 
 ### Logging
 - Logs are written to `logs/app.log` with DEBUG level
@@ -98,9 +103,7 @@ The project supports multiple forecasting approaches:
 
 ### Incomplete Components
 - `src/train/train.py`: Empty file, intended to be a unified training orchestrator
-- `src/train/arimax.py`: Empty file, ARIMAX implementation pending
 - `src/evaluation/forecasting_eval.py`: Empty file, evaluation metrics pending
-- `requirements.txt`: Missing several dependencies (see Installation section)
 
 ### Windows Environment
 This project is being developed on Windows with PowerShell. File paths use Windows conventions (`\`), and line endings are CRLF (`\r\n`).
