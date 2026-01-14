@@ -107,3 +107,9 @@ The project supports multiple forecasting approaches:
 
 ### Windows Environment
 This project is being developed on Windows with PowerShell. File paths use Windows conventions (`\`), and line endings are CRLF (`\r\n`).
+
+### Next Steps
+1. Make an API and models Loaders
+2. Containerize the service
+3. Make data Models and schema validation
+4. Creating Autotmatic batches training pipeline
