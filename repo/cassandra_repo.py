@@ -1,6 +1,6 @@
 from typing import List, Optional
 from datetime import datetime
-from .. import CassandraModule
+from infrastructure.configs.cassandra_db import CassandraModule
 from cassandra.query import SimpleStatement
 class CassandraRepository:
     """
