@@ -11,17 +11,18 @@ class CassandraModule:
                     self,
                     username = cas_username,
                     password = cas_password, 
-                    contact_points=["10.0.0.10", "10.0.0.11"],
+                    contact_points=["127.0.0.1"],
+                    port = 9042
                 ):
-        auth_provider = PlainTextAuthProvider(
-            username,
-            password,
-        )
-
-        cluster = Cluster(
-            contact_points,
-            auth_provider=auth_provider
-        )
+        
+        if(not username or not password):
+            cluster = cluster = Cluster(contact_points, port)
+        else:
+            auth_provider = PlainTextAuthProvider(
+                username,
+                password,
+            )
+            cluster = Cluster(contact_points, port, auth_provider)
 
         session = cluster.connect()
         self._session = session

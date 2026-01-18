@@ -7,12 +7,13 @@ class CassandraRepository:
 
     def __init__(
             self,
-            username,
-            password,
-            contact_points,
+            username=None,
+            password=None,
+            contact_points=['127.0.0.1'],
+            port = 9042
         ):
         session = CassandraModule()
-        session = session.connect(username, password, contact_points)
+        session = session.connect(username, password, contact_points, port)
         self._session = session
 
     def set_keyspace(self, keyspace: str):
