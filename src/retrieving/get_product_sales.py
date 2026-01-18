@@ -1,5 +1,4 @@
-from . import connect
-from ... import CassandraRepository
+from repo.cassandra_repo import CassandraRepository
 
 def get_product_sales(
         product_id, 
