@@ -51,5 +51,18 @@ class CassandraRepository:
         rows = self.session.execute(stmt, tuple(values))
         return list(rows)
 
+    def add_sales_record(
+        self,
+        table_name: str = "Sales",
+        record: dict = {}
+    ):
+        # Add Sales Record
+        columns = ", ".join(record.keys())
+        placeholders = ", ".join(["%s"] * len(record))
+        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+        values = list(record.values())
+        stmt = SimpleStatement(query)
+        self._session.execute(stmt, tuple(values))
+        
     def close(self):
         self.cluster.shutdown()
