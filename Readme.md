@@ -20,7 +20,6 @@ python main.py
 
 The main script initializes a MongoDB connection, performs basic CRUD operations as a demonstration, and closes the connection.
 
-
 ### Cassandra DB Setup
 The project expects Cassandra running on an external docker container which can be connected to the system by container IP as a replica, in Cassandra module replicas ip, keyspace, needs to be spicified.
 
