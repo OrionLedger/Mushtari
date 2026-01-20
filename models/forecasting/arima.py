@@ -1,7 +1,7 @@
 import pandas as pd
 from pmdarima import auto_arima
 
-def start_arima_forecaster(y, seasonal=False):
+def start_arima_forecaster(y, n_periods, seasonal=False):
     model = auto_arima(
         y, 
         start_p=0,
