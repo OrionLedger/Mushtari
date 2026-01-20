@@ -10,3 +10,4 @@ numpy
 matplotlib
 scylla-driver
 cassandra-driver
+fastapi
