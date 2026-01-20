@@ -1,10 +1,10 @@
 import pandas as pd
 from pmdarima import auto_arima
 
-def train_arimax_forecaster(y_train, X, n_periods, seasonal=False):
+def start_arimax_forecaster(y, X, n_periods, seasonal=False):
     model = auto_arima(
         X=X,
-        y=y_train, 
+        y=y, 
         start_p=0,
         start_q=0,
         max_p=5,
