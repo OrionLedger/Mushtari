@@ -2,18 +2,17 @@ import xgboost as xgb
 from os import environ
 
 MODELS_DIR = environ.get("MODELS_DIR") or "./models/"
-MODEL_NAME = "xgb_model.pkl"
 booster = xgb.Booster()
-_model = None
+_models = dict()
 
-def load_model():
-    global _model
-    if _model is None:
-        _model = booster.load_model(f"{MODELS_DIR}{MODEL_NAME}")
+def load_model(model_name: str):
+    global _models
+    if _models[model_name] is None:
+        _models[model_name] = booster.load_model(f"{MODELS_DIR}{model_name}.json")
 
-    return _model
+    return _models
 
-def get_model():
-    if _model is None:
+def get_model(model_name: str):
+    if _models[model_name] is None:
         raise RuntimeError("Model not loaded. Call load_model() first.")
-    return _model
+    return _models[model_name]
