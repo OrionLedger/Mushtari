@@ -1,28 +1,25 @@
+from repo.cassandra_repo import CassandraRepository
+from src.retrieving.get_product_sales import get_product_sales
 from models.forecasting.arima import start_arima_forecaster
-from models.forecasting.arimax import start_arimax_forecaster
 
-def forecast_with_arima(
-        y,
-        n_periods: int = 12,
-        seasonal: bool = False
-        ):
+def forecast_product(product_id: int, horizon: int):
+    repo = CassandraRepository()
+
+    data = get_product_sales(
+        product_id=product_id,
+        columns=["sales"],
+        repo=repo
+    )
+
+    y = [float(r["sales"]) for r in data]
+
     model, y_pred, conf_int = start_arima_forecaster(
-        y,
-        n_periods,
-        seasonal
-        )
-    return model, y_pred, conf_int
+        y=y,
+        steps=horizon
+    )
 
-def forecast_with_arimax(
-        y,
-        X,
-        n_periods: int = 12,
-        seasonal: bool = False
-        ):
-    model, y_pred, conf_int = start_arimax_forecaster(
-        y,
-        X,
-        n_periods,
-        seasonal
-        )
-    return model, y_pred, conf_int
+    return {
+        "product_id": product_id,
+        "horizon": horizon,
+        "forecast": y_pred.tolist()
+    }
