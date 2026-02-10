@@ -4,7 +4,8 @@ from sklearn.impute import SimpleImputer
 from typing import Literal
 
 def clean_data(
-        df:pd.DataFrame,
+        df:pd.DataFrame,21
+        
         outliers_strategy: Literal["drop", "stl_dec", "rolling", "hampel"],
         missing_data: Literal["drop", "impute", "none"] = 'none',
         ):
