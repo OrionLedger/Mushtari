@@ -2,6 +2,17 @@ import pandas as pd
 from pmdarima import auto_arima
 
 def start_arima_forecaster(y, n_periods, seasonal=False):
+    """
+    Starts the ARIMA forecaster.
+    
+    Args:
+        y: The time series data.
+        n_periods: The number of periods to forecast.
+        seasonal: Whether the time series is seasonal.
+    
+    Returns:
+        The ARIMA model, the forecast, and the confidence interval.
+    """
     model = auto_arima(
         y, 
         start_p=0,
