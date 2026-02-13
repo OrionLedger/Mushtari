@@ -7,6 +7,16 @@ def log_transformer(
     df: pd.DataFrame,
     method:Literal["box-cox", "yeo-johnson"] = 'box-cox'
 ):
+    """
+    Applies a log transformation to the dataframe.
+    
+    Args:
+        df: The dataframe to apply the log transformation to.
+        method: The method to use for the log transformation.
+    
+    Returns:
+        The dataframe with the log transformation applied.
+    """
     if type(df) is not pd.DataFrame:
         raise ValueError("Enter a valid dataframe")
     

@@ -12,9 +12,25 @@ def train_xgboost_regressor(
         columns: List = ['sales'],
         start_date: str = None,
         end_date: str = None,
-        repo = CassandraRepository(),
+        repo = None,
         test_size = 0.2
         ):
+    if repo is None:
+        repo = CassandraRepository()
+    """
+    Trains an XGBoost regressor model.
+    
+    Args:
+        product_id: The ID of the product to train the model for.
+        columns: The columns to use for training.
+        start_date: The start date of the date range.
+        end_date: The end date of the date range.
+        repo: The Cassandra repository to use for training.
+        test_size: The size of the test set.
+    
+    Returns:
+        The trained XGBoost regressor model.
+    """
     data = get_product_sales(
         product_id,
         columns,

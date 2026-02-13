@@ -14,7 +14,7 @@ These tasks address direct logic errors that currently cause runtime failures or
 - [ ] **Fix Model Loader Logic**:
     - Update `serving/loaders/load_models.py` to handle the case where a model is not in the dictionary (implement `dict.get()` or a proper initialization check).
     - Correct `MODELS_DIR` pathing to point to actual model artifact locations.
-- [ ] **Sync Repository Method Signatures**: Update `src/retrieving/get_product_sales.py` to pass arguments correctly to `CassandraRepository.get_sales_records`.
+<!-- - [ ] **Sync Repository Method Signatures**: Update `src/retrieving/get_product_sales.py` to pass arguments correctly to `CassandraRepository.get_sales_records`. -->
 - [ ] **Fix Data Imputation**: Ensure `SimpleImputer` in `clean_data.py` returns a DataFrame with preserved column names (instead of a NumPy array) to prevent downstream breakage.
 
 ## 2. Architectural Integration

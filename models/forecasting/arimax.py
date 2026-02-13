@@ -2,6 +2,18 @@ import pandas as pd
 from pmdarima import auto_arima
 
 def start_arimax_forecaster(y, X, n_periods, seasonal=False):
+    """
+    Starts the ARIMAX forecaster.
+    
+    Args:
+        y: The time series data.
+        X: The exogenous variables.
+        n_periods: The number of periods to forecast.
+        seasonal: Whether the time series is seasonal.
+    
+    Returns:
+        The ARIMAX model, the forecast, and the confidence interval.
+    """
     model = auto_arima(
         X=X,
         y=y, 

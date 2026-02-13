@@ -10,10 +10,22 @@ def predict_product_demand(product_id,
                            start_date=None,
                            end_date=None
     ):
+    """
+    Predicts the demand for a specific product.
+    
+    Args:
+        product_id: The ID of the product to predict demand for.
+        model_name: The name of the model to use for prediction.
+        columns: The columns to use for prediction.
+        start_date: The start date of the date range.
+        end_date: The end date of the date range.
+    
+    Returns:
+        A dictionary containing the prediction for the specified product.
+    """
     model = get_model(model_name)
     data = get_product_sales(product_id, 
                             columns=columns, 
-                            repo=CassandraRepository(), 
                             start_date=start_date, 
                             end_date=end_date
         )

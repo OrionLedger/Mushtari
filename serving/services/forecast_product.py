@@ -3,6 +3,16 @@ from src.retrieving.get_product_sales import get_product_sales
 from models.forecasting.arima import start_arima_forecaster
 
 def forecast_product(product_id: int, horizon: int):
+    """
+    Forecasts the demand for a specific product.
+    
+    Args:
+        product_id: The ID of the product to forecast demand for.
+        horizon: The number of days to forecast demand for.
+    
+    Returns:
+        A dictionary containing the forecast for the specified product.
+    """
     repo = CassandraRepository()
 
     data = get_product_sales(

@@ -4,12 +4,21 @@ from sklearn.impute import SimpleImputer
 from typing import Literal
 
 def clean_data(
-        df:pd.DataFrame,21
-        
+        df:pd.DataFrame,
         outliers_strategy: Literal["drop", "stl_dec", "rolling", "hampel"],
         missing_data: Literal["drop", "impute", "none"] = 'none',
         ):
+    """
+    Cleans the dataframe by removing outliers and missing values.
     
+    Args:
+        df: The dataframe to clean.
+        outliers_strategy: The strategy to use for removing outliers.
+        missing_data: The strategy to use for removing missing values.
+    
+    Returns:
+        The cleaned dataframe.
+    """
     if missing_data not in ('impute', 'drop'):
         raise ValueError("missing_data must be impute, drop, or none")
 
