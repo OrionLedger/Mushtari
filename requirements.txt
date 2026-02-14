@@ -1,5 +1,4 @@
 pymongo
-logging
 requests
 statsmodels
 pmdarima
@@ -8,6 +7,10 @@ scikit-learn
 pandas
 numpy
 matplotlib
-scylla-driver
 cassandra-driver
+scylla-driver
 fastapi
+uvicorn
+loguru
+httpx
+pytest
