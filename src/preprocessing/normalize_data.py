@@ -19,22 +19,25 @@ def normalize_data(
     if strategy not in ('standard', 'minmax', 'robust', 'none'):
         raise ValueError("strategy must be standard, minmax, robust, or none")
 
-    if strategy is "standard":
+    if strategy == "standard":
         scaler = StandardScaler()
-        df = scaler.fit_transform(df)
+        df_scaled = scaler.fit_transform(df)
+        df = pd.DataFrame(df_scaled, columns=df.columns, index=df.index)
         print("Data normalized using standard scaler.")
     
-    elif strategy is "minmax":
+    elif strategy == "minmax":
         scaler = MinMaxScaler()
-        df = scaler.fit_transform(df)
+        df_scaled = scaler.fit_transform(df)
+        df = pd.DataFrame(df_scaled, columns=df.columns, index=df.index)
         print("Data normalized using minmax scaler.")
     
-    elif strategy is "robust":
+    elif strategy == "robust":
         scaler = RobustScaler()
-        df = scaler.fit_transform(df)
+        df_scaled = scaler.fit_transform(df)
+        df = pd.DataFrame(df_scaled, columns=df.columns, index=df.index)
         print("Data normalized using robust scaler.")
     
-    elif strategy is "none":
+    elif strategy == "none":
         print("No normalization applied.")
     
     return df

@@ -19,33 +19,35 @@ def clean_data(
     Returns:
         The cleaned dataframe.
     """
-    if missing_data not in ('impute', 'drop'):
+    if missing_data not in ('impute', 'drop', 'none'):
         raise ValueError("missing_data must be impute, drop, or none")
 
-    if missing_data is "drop":
+    if missing_data == "drop":
         df = df.dropna()
         print("Nan values dropped.")
 
-    elif missing_data is "impute":
+    elif missing_data == "impute":
         imputer = SimpleImputer(missing_values=np.nan, strategy="mean")
-        df = imputer.fit_transform(df)
+        df_imputed = imputer.fit_transform(df)
+        df = pd.DataFrame(df_imputed, columns=df.columns, index=df.index)
         print("Nan values imputed")
-    else:
-        raise ValueError("Invalid missing_data strategy")
+    
+    # Handle the 'none' case explicitly if needed, currently it falls through to outliers logic
 
-    if outliers_strategy is "drop":
+    if outliers_strategy == "drop":
         max_bound = df.quantile(0.95)
         min_bound = df.quantile(0.05)
         df = df[(df > min_bound) & (df < max_bound)].dropna()
         print("Outliers dropped.")
     
-    elif outliers_strategy is "stl_dec":
+    elif outliers_strategy == "stl_dec":
         
         print("Stl Decomposition is not yet ready")
     
-    elif outliers_strategy is "rolling":
+    elif outliers_strategy == "rolling":
         print("Rolling curve is not yet ready")
     
-    elif outliers_strategy is "hampel":
+    elif outliers_strategy == "hampel":
         print("Hampel filter is not yet ready")
     
+    return df
