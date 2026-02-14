@@ -1,9 +1,9 @@
 import pandas as pd
-from sklearn.metrics import mean_squared_error
+from sklearn import metrics
 
 def squared_mean_error(
-        y_true:pd.Series,
-        y_pred:pd.Series,
+        y_true: pd.Series,
+        y_pred: pd.Series,
         ):
     """
     Calculates the squared mean error between the true and predicted values.
@@ -15,7 +15,7 @@ def squared_mean_error(
     Returns:
         The squared mean error.
     """
-    if type(y_true) is not pd.Series or type(y_pred) is not pd.Series:
+    if not isinstance(y_true, pd.Series) or not isinstance(y_pred, pd.Series):
         raise ValueError("Enter valid pandas series")
     
-    return mean_squared_error(y_true, y_pred)
+    return metrics.mean_squared_error(y_true, y_pred)

@@ -14,3 +14,4 @@ uvicorn
 loguru
 httpx
 pytest
+mlflow

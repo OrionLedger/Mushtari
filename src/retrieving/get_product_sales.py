@@ -3,8 +3,8 @@ from repo.cassandra_repo import CassandraRepository
 def get_product_sales(
         product_id, 
         columns,
-        start_date,
-        end_date,
+        start_date = None,
+        end_date = None,
         table_name='sales',
         repo = None,
         ):

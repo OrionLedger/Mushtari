@@ -17,12 +17,17 @@ def log_transformer(
     Returns:
         The dataframe with the log transformation applied.
     """
-    if type(df) is not pd.DataFrame:
+    if not isinstance(df, pd.DataFrame):
         raise ValueError("Enter a valid dataframe")
     
     numeric_df = df.select_dtypes(include=[np.number])
     if numeric_df.empty:
         raise ValueError("Dataframe does not contain numeric columns")
+
+    # Cast to float to avoid precision/dtype issues during insertion
+    df = df.astype({col: float for col in numeric_df.columns})
+    numeric_df = df.select_dtypes(include=[np.number])
+
     transformer = PowerTransformer(method)
     transformed_numeric_df = transformer.fit_transform(numeric_df)
 
