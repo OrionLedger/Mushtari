@@ -4,3 +4,4 @@ __pycache__/
 reports/
 mlruns/
 mlflow.db
+.pytest_cache/
