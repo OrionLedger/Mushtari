@@ -48,7 +48,7 @@ class CassandraRepository:
             values.append(end_date)
 
         stmt = SimpleStatement(query)
-        rows = self.session.execute(stmt, tuple(values))
+        rows = self._session.execute(stmt, tuple(values))
         return list(rows)
 
     def add_sales_record(
@@ -65,4 +65,4 @@ class CassandraRepository:
         self._session.execute(stmt, tuple(values))
         
     def close(self):
-        self.cluster.shutdown()
+        self._session.cluster.shutdown()
