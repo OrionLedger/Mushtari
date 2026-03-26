@@ -28,10 +28,10 @@ def clean_data(
 
     elif missing_data == "impute":
         imputer = SimpleImputer(missing_values=np.nan, strategy="mean")
-        df_imputed = imputer.fit_transform(df)
-        df = pd.DataFrame(df_imputed, columns=df.columns, index=df.index)
+        imputer.set_output(transform="pandas")
+        df = imputer.fit_transform(df)
         print("Nan values imputed")
-    
+        
     # Handle the 'none' case explicitly if needed, currently it falls through to outliers logic
 
     if outliers_strategy == "drop":

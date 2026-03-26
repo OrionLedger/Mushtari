@@ -8,8 +8,7 @@ def get_product_sales(
         table_name='sales',
         repo = None,
         ):
-    if repo is None:
-        repo = CassandraRepository()
+    
     """
     Retrieves sales records for a specific product within a given date range.
     
@@ -24,30 +23,35 @@ def get_product_sales(
     Returns:
         A list of sales records for the specified product within the given date range.
     """
+    if repo is None:
+        repo = CassandraRepository()
+        
     if not start_date and not end_date:
         return repo.get_sales_records(
             table_name,
-            product_id,
             columns,
+            product_id,
+           
+           
         )
     if not end_date:
         return repo.get_sales_records(
             table_name,
-            product_id,
             columns,
+            product_id,
             start_date=start_date
         )
     if not start_date:
         return repo.get_sales_records(
             table_name,
-            product_id,
             columns,
+            product_id,
             end_date=end_date
         )
     return repo.get_sales_records(
         table_name,
-        product_id,
         columns,
+        product_id,
         start_date=start_date,
         end_date=end_date
     )
