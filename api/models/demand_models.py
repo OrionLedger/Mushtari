@@ -7,6 +7,12 @@ class PredictPayload(BaseModel):
     start_date: Optional[str] = Field(None, examples=["2026-01-01"])
     end_date: Optional[str] = Field(None, examples=["2026-02-01"])
 
+class PredictBatchPayload(BaseModel):
+    product_ids: List[int] = Field(..., examples=[[1, 2, 3]])
+    features: Optional[List[str]] = Field(None, examples=[["lag_1", "lag_7", "month"]])
+    start_date: Optional[str] = Field(None, examples=["2026-01-01"])
+    end_date: Optional[str] = Field(None, examples=["2026-02-01"])
+
 class SalesRecord(BaseModel):
     product_id: int = Field(..., examples=[1])
     date: str = Field(..., examples=["2026-01-23"])
