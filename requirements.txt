@@ -15,3 +15,11 @@ loguru
 httpx
 pytest
 mlflow
+prefect>=3.0
+kafka-python
+pyarrow
+openpyxl
+psycopg2-binary
+sqlalchemy
+pandera
+prometheus-fastapi-instrumentator

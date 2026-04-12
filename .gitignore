@@ -3,3 +3,6 @@ data/
 __pycache__/
 reports/
 mlruns/
+mlflow.db
+.pytest_cache/
+logs/
