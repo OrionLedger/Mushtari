@@ -1,6 +1,9 @@
 from fastapi import FastAPI
-from api.router.demand import router  # import your router
+from api.router.demand import router as demand_router
+from api.router.data import router as data_router
+from api.router.kpi import router as kpi_router
 from fastapi.responses import RedirectResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 
 app = FastAPI(title="ML API")
 
@@ -8,4 +11,13 @@ app = FastAPI(title="ML API")
 def root():
     return RedirectResponse(url="/docs")
 
-app.include_router(router)
+@app.get("/health", tags=["Monitoring"])
+def health_check():
+    return {"status": "ok", "timestamp": "now"}
+
+app.include_router(demand_router)
+app.include_router(data_router)
+app.include_router(kpi_router)
+
+# Instrument the app with Prometheus
+Instrumentator().instrument(app).expose(app)

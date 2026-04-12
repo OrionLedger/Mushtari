@@ -56,12 +56,13 @@
 | **API Framework** | FastAPI · Uvicorn · Pydantic |
 | **ML / Forecasting** | XGBoost · scikit-learn · pmdarima · statsmodels |
 | **Experiment Tracking** | MLflow |
-| **Databases** | Apache Cassandra / ScyllaDB (primary) · MongoDB (legacy) |
+| **Databases** | Cassandra · MongoDB · PostgreSQL (SQLAlchemy) |
+| **Data Validation** | Pandera (Data Gatekeeper) |
+| **Observability** | Prometheus · Loguru |
 | **Data & Compute** | pandas · NumPy · matplotlib |
-| **Logging** | Loguru |
 | **HTTP Client** | httpx · requests |
 | **Testing** | pytest |
-| **Containerisation** | Docker |
+| **Containerisation** | Docker · Docker Compose |
 
 ---
 
@@ -115,93 +116,36 @@
 
 ```
 Moshtari/
-├── main.py                          # FastAPI app entry point (Uvicorn target)
+├── main.py                          # FastAPI app entry point
 ├── Dockerfile                       # Production container image
+├── docker-compose.yml               # UAT orchestration
 ├── requirements.txt                 # Python dependencies
 ├── .dockerignore                    # Docker build exclusions
 │
-├── api/                             # — API Layer —
+├── api/                             # -- API Layer --
 │   ├── router/
-│   │   └── demand.py                # FastAPI router: /api/predict, /forecast, /sales, /train
+│   │   ├── demand.py                # Prediction & batch endpoints
+│   │   ├── data.py                  # ETL Pipeline endpoints
+│   │   └── kpi.py                   # Market Fit reporting
 │   └── models/
-│       └── demand_models.py         # Pydantic request/response schemas
+│       ├── demand_models.py         # Prediction schemas
+│       └── data_models.py           # ETL schemas
 │
-├── serving/                         # — Service / Orchestration Layer —
-│   ├── loaders/
-│   │   └── load_models.py           # XGBoost model cache (singleton dict)
-│   └── services/
-│       ├── predict_product_demand.py # XGBoost inference pipeline
-│       ├── forecast_product.py      # ARIMA forecasting pipeline
-│       ├── train_xgboost_regressor_sales.py  # On-demand XGBoost training
-│       └── add_records.py           # Insert sales records
+├── etl/                             # -- ETL Pipeline (Prefect) --
+│   ├── flows/
+│   │   └── etl_flow.py              # Main orchestrator
+│   ├── gatekeeper/
+│   │   ├── schemas.py               # Pandera rules
+│   │   └── validator.py             # Validation task
+│   └── load/
+│       └── database.py              # Multi-DB loader
 │
-├── models/                          # — ML Model Implementations —
-│   ├── forecasting/
-│   │   ├── arima.py                 # Auto-ARIMA forecaster (pmdarima)
-│   │   ├── arimax.py                # ARIMAX with exogenous variables
-│   │   └── naive_baseline.py        # Last-value baseline
-│   └── inference/                   # (Reserved for inference artifacts)
-│
-├── src/                             # — Core Business Logic —
-│   ├── train/
-│   │   └── xg_boost.py             # XGBoost regressor training logic
-│   ├── evaluation/
-│   │   ├── mean_absolute_error.py   # MAE metric
-│   │   └── squared_mean_error.py    # MSE / RMSE metric
-│   ├── preprocessing/
-│   │   ├── clean_data.py            # Missing-value imputation, outlier removal
-│   │   ├── normalize_data.py        # Feature normalisation
-│   │   └── transform_data.py        # Feature transformations
-│   ├── retrieving/
-│   │   └── get_product_sales.py     # Fetch sales data from repository
-│   ├── features/                    # (Reserved for feature engineering)
-│   └── utils/                       # (Reserved for shared utilities)
-│
-├── repo/                            # — Data Access Layer —
-│   └── cassandra_repo.py            # CassandraRepository (Cassandra / ScyllaDB)
-│
-├── infrastructure/                  # — Cross-Cutting Concerns —
-│   ├── configs/
-│   │   ├── cassandra_db.py          # Cassandra connection manager
-│   │   └── mongo_db.py              # MongoDB connection manager (legacy)
-│   ├── logging/
-│   │   └── logger.py                # Loguru config (console + rotating file)
-│   ├── monitoring/                  # (Reserved for health checks & metrics)
-│   └── utils/
-│       └── request.py               # HTTP request wrapper (httpx / requests)
-│
-├── tests/                           # — Test Suite —
-│   ├── conftest.py                  # Shared pytest fixtures
-│   ├── unit/
-│   │   ├── test_evaluation.py
-│   │   ├── test_preprocessing.py
-│   │   ├── test_retrieving.py
-│   │   ├── test_services.py
-│   │   └── test_train.py
-│   └── integration/
-│       └── test_api.py
-│
-├── notebooks/                       # — Exploratory Analysis —
-│   ├── exploratory/                 # Active experimentation notebooks
-│   ├── archived/                    # Archived / superseded notebooks
-│   └── reports/                     # Notebook-generated reports
-│
-├── data/                            # — Data Directory (gitignored) —
-│   ├── external/                    # Third-party datasets
-│   ├── extracts/                    # Extracted / intermediate data
-│   └── processed/                   # Cleaned, ready-to-train data
-│
-├── reports/                         # — Project Documentation —
-│   ├── project_overview.md
-│   ├── swot_analysis.md
-│   └── refactoring_and_fixing_tasks.md
-│
-├── logs/                            # — Application Logs (gitignored) —
-├── mlruns/                          # — MLflow Experiment Runs (gitignored) —
-└── mlflow.db                        # — MLflow Tracking Store (gitignored) —
+├── infrastructure/                  # -- Cross-Cutting --
+│   ├── monitoring/
+│   │   └── telemetry.py             # Metrics utility
+│   └── ...
+└── ...
 ```
-
----
 
 ## Getting Started
 
@@ -250,55 +194,21 @@ The API will be available at **http://localhost:8000**. The root `/` redirects t
 
 All endpoints are prefixed with `/api`.
 
-### `GET /api/`
-Returns a summary of all available endpoints.
+### ML & Prediction (`/api`)
+- `POST /api/predict`: Synchronous prediction with thread-offloading.
+- `POST /api/predict/batch`: Asynchronous prediction for multiple products.
+- `GET /api/forecast`: Cached ARIMA forecast with TTL background revalidation.
+- `PATCH /api/train/xgboost`: Trigger model training.
 
-### `POST /api/predict`
-Predict demand for a product using a trained XGBoost model.
+### Data & ETL (`/api/data`)
+- `POST /api/data/extract`: Trigger Prefect ETL pipeline as a background task. Supports `--db-type` (cassandra, mongo, postgres).
 
-```json
-{
-  "product_id": 1,
-  "features": ["lag_1", "lag_7", "month"],
-  "start_date": "2026-01-01",
-  "end_date": "2026-02-01"
-}
-```
+### Business KPIs (`/api/kpi`)
+- `POST /api/kpi/market-fit`: Calculate Forecast Bias, Inventory Accuracy, etc.
 
-### `GET /api/forecast?product_id=1&horizon=7`
-Generate a time-series forecast using ARIMA.
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `product_id` | `int` | required | Target product ID |
-| `horizon` | `int` | `7` | Number of future steps to forecast |
-
-### `POST /api/sales`
-Insert a new sales record into the database.
-
-```json
-{
-  "table_name": "Sales",
-  "record": {
-    "product_id": 1,
-    "date": "2026-01-23",
-    "sales": 15.5
-  }
-}
-```
-
-### `PATCH /api/train/xgboost`
-Trigger on-demand retraining of the XGBoost model for a specific product.
-
-```json
-{
-  "product_id": 1,
-  "columns": ["sales", "price"],
-  "start_date": "2025-01-01",
-  "end_date": "2025-12-31",
-  "test_size": 0.2
-}
-```
+### Monitoring
+- `GET /health`: Liveness probe for UAT/Production.
+- `GET /metrics`: Prometheus formatted application metrics.
 
 ---
 
@@ -347,23 +257,16 @@ MLflow is integrated for experiment tracking. Runs, parameters, and metrics are 
 
 ## Docker Deployment
 
-### Build
-
+### Docker Compose (UAT)
+Recommended for spinning up the full environment (API, Cassandra, MLflow).
 ```powershell
-docker build -t moshtari:latest .
+docker-compose up --build
 ```
 
-### Run
-
+### Manual Docker Run
 ```powershell
-docker run -d `
-  --name moshtari `
-  -p 8000:8000 `
-  -e CASSANDRA_HOST=<cassandra-host> `
-  -e CASSANDRA_KEYSPACE=<keyspace> `
-  -e CASSANDRA_USERNAME=<username> `
-  -e CASSANDRA_PASSWORD=<password> `
-  moshtari:latest
+docker build -t moshtari:latest .
+docker run -d -p 8000:8000 moshtari:latest
 ```
 
 The container runs as a non-privileged `appuser` for security. The API is served by Uvicorn on port **8000**.
@@ -437,11 +340,11 @@ MongoDB support is retained for backward compatibility. Default connection: `mon
 
 ## Roadmap
 
-- [ ] **Optimize Inference Endpoints** — Explore caching, batch inference, or async endpoints for high-throughput prediction requests.
-- [ ] **Develop Data Gatekeeper** — Implement formal data validations (e.g., Pandera/Pydantic) upstream of ETL flows to secure the ingestion process.
-- [ ] **Implement Usage Telemetry** — Centralize observability using Prometheus or OpenTelemetry for tracking usage of endpoints and pipelines.
-- [ ] **Define Market Fit KPIs** — Draft metrics and KPI reporting outlining real-world effectiveness of forecasting outputs.
-- [ ] **Execute UAT Environment** — Configure CI/CD automated test deployments to establish a verified User Acceptance Testing (UAT) workspace.
+- [x] **Optimize Inference Endpoints** — Implemented async thread-offloading, batching, and TTL caching.
+- [x] **Develop Data Gatekeeper** — Implemented Pandera-based strict business rule validation.
+- [x] **Implement Usage Telemetry** — Added Prometheus instrumentation and structured metrics logging.
+- [x] **Define Market Fit KPIs** — Added business-centric metrics (Bias, Inventory Accuracy).
+- [x] **Execute UAT Environment** — Created Docker Compose orchestrator and UAT verification scripts.
 
 ---
 

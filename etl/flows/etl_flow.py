@@ -17,6 +17,7 @@ from prefect import flow, task
 from prefect.logging import get_run_logger
 
 from infrastructure.logging.logger import get_logger
+from infrastructure.monitoring.telemetry import log_metric
 from etl.config.settings import get_settings
 
 # ── Extract tasks ────────────────────────────────────────────────────
@@ -168,6 +169,8 @@ def etl_pipeline_flow(
     results["extract"] = extract_metadata
     source_name = extract_metadata.get("source_name", "unknown")
     print(f"  ✓ Extracted {len(df)} rows from {source_name}")
+    
+    log_metric("etl_rows_extracted", len(df), {"source": source_name, "type": source_type})
 
     if df.empty:
         results["status"] = "failed"
@@ -313,6 +316,8 @@ def etl_pipeline_flow(
         "columns_after": len(df.columns),
     }
     print(f"  ✓ Transform complete: {len(df)} rows × {len(df.columns)} columns")
+    
+    log_metric("etl_rows_transformed", len(df), {"source": source_name})
 
     # ================================================================
     # STEP 4: LOAD
