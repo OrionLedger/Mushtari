@@ -7,7 +7,7 @@ from serving.services.predict_product_demand import predict_product_demand
 
 @pytest.fixture
 def mock_repo():
-    """Fixture for a mocked CassandraRepository."""
+    """Fixture for a mocked BaseRepo."""
     return MagicMock()
 
 @pytest.fixture
@@ -25,16 +25,23 @@ def test_add_sales_record_calls_repo(mock_repo):
     add_sales_record(record=test_record, table_name="TestTable", repo=mock_repo)
     
     # Assert that the repo's add method was called with correct args
-    mock_repo.add_sales_record.assert_called_once_with(
+    mock_repo.add_record.assert_called_once_with(
         table_name="TestTable",
         record=test_record
     )
+
+@patch("serving.services.add_records.get_repository")
+def test_add_sales_record_default_repo(mock_get_repo):
+    """Verify that it uses the factory when no repo is provided."""
+    test_record = {"product_id": 1, "sales": 10}
+    add_sales_record(record=test_record)
+    mock_get_repo.assert_called_once()
 
 @patch("serving.services.forecast_product.start_arima_forecaster")
 def test_forecast_product_orchestration(mock_arima, mock_repo, sample_sales_data):
     """Verify that forecast_product fetches data and calls the ARIMA forecaster."""
     # Setup mocks
-    mock_repo.get_sales_records.return_value = sample_sales_data
+    mock_repo.get_record.return_value = sample_sales_data
     mock_model = MagicMock()
     # Mock return: model, y_pred, conf_int
     mock_arima.return_value = (mock_model, np.array([16.0, 17.0]), np.array([[15, 17], [16, 18]]))

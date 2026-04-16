@@ -265,3 +265,21 @@ pymongo.errors.OperationFailure: Authentication failed., full error: {'ok': 0.0,
 2025-10-23 18:16:40.108 | INFO     | infrastructure.DB.mongo_db:add_record:28 - Record added to 'test_collection' with id: 68fa46d860404a5cf5076658
 2025-10-23 18:16:40.110 | INFO     | infrastructure.DB.mongo_db:get_record:36 - Record retrieved from 'test_collection': {'_id': ObjectId('68fa4364dcef4f31c2bdefcd'), 'name': 'Test Record', 'value': 123}
 2025-10-23 18:16:40.112 | INFO     | infrastructure.DB.mongo_db:close_connection:60 - Database connection closed.
+2026-04-13 16:08:00.688 | ERROR    | etl.load.mlflow_loader:log_to_mlflow:103 - MLflow logging failed: [WinError 123] The filename, directory name, or volume label syntax is incorrect
+2026-04-13 16:08:00.701 | INFO     | etl.load.mlflow_loader:log_to_mlflow:47 - MLflow tracking is disabled — skipping.
+2026-04-16 12:55:15.001 | ERROR    | etl.load.mlflow_loader:log_to_mlflow:103 - MLflow logging failed: [Errno 22] Invalid argument: "<MagicMock name='Path().parent.__truediv__()' id='2797022836048'>"
+2026-04-16 12:55:15.013 | INFO     | etl.load.mlflow_loader:log_to_mlflow:47 - MLflow tracking is disabled — skipping.
+2026-04-16 13:06:55.004 | ERROR    | etl.load.mlflow_loader:log_to_mlflow:103 - MLflow logging failed: [Errno 22] Invalid argument: "<MagicMock name='Path().parent.__truediv__()' id='1749465847696'>"
+2026-04-16 13:06:55.012 | INFO     | etl.load.mlflow_loader:log_to_mlflow:47 - MLflow tracking is disabled — skipping.
+2026-04-16 13:09:43.273 | INFO     | etl.load.mlflow_loader:log_to_mlflow:96 - Logged to MLflow: experiment='test_experiment', run_id=46aa8314080e417b8a30da4d208270d3
+2026-04-16 13:09:44.160 | INFO     | etl.load.mlflow_loader:log_to_mlflow:47 - MLflow tracking is disabled — skipping.
+2026-04-16 13:09:56.001 | INFO     | etl.load.mlflow_loader:log_to_mlflow:96 - Logged to MLflow: experiment='test_experiment', run_id=de8517a79b0545ec817a64806f26b585
+2026-04-16 13:09:56.582 | INFO     | etl.load.mlflow_loader:log_to_mlflow:47 - MLflow tracking is disabled — skipping.
+2026-04-16 13:10:26.465 | INFO     | etl.load.mlflow_loader:log_to_mlflow:96 - Logged to MLflow: experiment='test_experiment', run_id=test_run_123
+2026-04-16 13:10:26.470 | INFO     | etl.load.mlflow_loader:log_to_mlflow:47 - MLflow tracking is disabled — skipping.
+2026-04-16 13:10:54.890 | INFO     | etl.load.mlflow_loader:log_to_mlflow:96 - Logged to MLflow: experiment='test_experiment', run_id=test_run_123
+2026-04-16 13:10:54.898 | INFO     | etl.load.mlflow_loader:log_to_mlflow:47 - MLflow tracking is disabled — skipping.
+2026-04-16 13:26:30.856 | INFO     | repo.postgres_repo:connect:64 - Successfully connected to PostgreSQL at <MagicMock name='create_engine().url.host' id='2463149597200'>
+2026-04-16 13:26:30.861 | INFO     | repo.postgres_repo:connect:64 - Successfully connected to PostgreSQL at <MagicMock name='create_engine().url.host' id='2463149796304'>
+2026-04-16 13:26:30.865 | INFO     | repo.postgres_repo:connect:64 - Successfully connected to PostgreSQL at <MagicMock name='create_engine().url.host' id='2463149929936'>
+2026-04-16 13:26:30.871 | INFO     | repo.postgres_repo:connect:64 - Successfully connected to PostgreSQL at <MagicMock name='create_engine().url.host' id='2463129902544'>

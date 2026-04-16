@@ -1,25 +1,36 @@
-pymongo
-requests
-statsmodels
-pmdarima
-xgboost
-scikit-learn
-pandas
+# Core Data Science
 numpy
+pandas
+scikit-learn
+xgboost
+pmdarima
+statsmodels
 matplotlib
-cassandra-driver
-scylla-driver
+
+# API & Server
 fastapi
 uvicorn
-loguru
-httpx
-pytest
-mlflow
-prefect>=3.0
+pydantic
+prometheus-fastapi-instrumentator
+
+# ETL & Workflow
+prefect
 kafka-python
-pyarrow
-openpyxl
+pandera
+
+# Database & Infrastructure
+cassandra-driver
+scylla-driver
 psycopg2-binary
 sqlalchemy
-pandera
-prometheus-fastapi-instrumentator
+requests
+httpx
+pymongo
+
+# DevOps & Testing
+pytest
+mlflow
+loguru
+pyarrow
+openpyxl
+python-dotenv

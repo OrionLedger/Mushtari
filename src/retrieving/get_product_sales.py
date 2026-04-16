@@ -1,53 +1,43 @@
-from repo.cassandra_repo import CassandraRepository
+from repo import get_repository
+from etl.config.settings import get_settings
 
 def get_product_sales(
         product_id, 
         columns,
         start_date = None,
         end_date = None,
-        table_name='sales',
+        table_name=None,
         repo = None,
         ):
-    if repo is None:
-        repo = CassandraRepository()
     """
     Retrieves sales records for a specific product within a given date range.
-    
-    Args:
-        product_id: The ID of the product to retrieve sales records for.
-        columns: The columns to retrieve from the sales records.
-        start_date: The start date of the date range.
-        end_date: The end date of the date range.
-        table_name: The name of the sales table.
-        repo: The Cassandra repository to use for retrieving sales records.
-    
-    Returns:
-        A list of sales records for the specified product within the given date range.
+    Uses the repository factory to support multiple storage backends.
     """
-    if not start_date and not end_date:
-        return repo.get_sales_records(
-            table_name,
-            product_id,
-            columns,
+    settings = get_settings()
+    
+    if repo is None:
+        c_settings = settings.extract.cassandra
+        repo = get_repository(
+            "cassandra",
+            username=c_settings.username,
+            password=c_settings.password,
+            contact_points=c_settings.contact_points,
+            port=c_settings.port
         )
-    if not end_date:
-        return repo.get_sales_records(
-            table_name,
-            product_id,
-            columns,
-            start_date=start_date
-        )
-    if not start_date:
-        return repo.get_sales_records(
-            table_name,
-            product_id,
-            columns,
-            end_date=end_date
-        )
-    return repo.get_sales_records(
-        table_name,
-        product_id,
-        columns,
-        start_date=start_date,
-        end_date=end_date
+        if c_settings.keyspace:
+            repo.set_keyspace(c_settings.keyspace)
+    
+    if table_name is None:
+        table_name = settings.extract.cassandra.default_table
+
+    filters = {"product_id": product_id}
+    if start_date:
+        filters["sell_date__gte"] = start_date
+    if end_date:
+        filters["sell_date__lte"] = end_date
+        
+    return repo.get_record(
+        table_name=table_name,
+        filters=filters,
+        columns=columns
     )

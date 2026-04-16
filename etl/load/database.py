@@ -1,4 +1,6 @@
 """
+etl/load/database.py
+
 Database loader — writes processed data back to Cassandra, MongoDB, or PostgreSQL
 via dynamic configuration and internal abstractions.
 """
@@ -8,7 +10,8 @@ import pandas as pd
 from prefect import task
 
 from infrastructure.logging.logger import get_logger
-from repo.cassandra_repo import CassandraRepository
+from repo import get_repository
+from repo.base import BaseRepo
 from etl.config.settings import get_settings
 
 logger = get_logger(__name__)
@@ -24,22 +27,11 @@ def load_to_database(
     table_name: str = "processed_sales",
     db_type: str = "cassandra",
     connection_uri: Optional[str] = None,
-    repo: Optional[Any] = None,
+    repo: Optional[BaseRepo] = None,
     batch_size: int = 100,
 ) -> Dict[str, Any]:
     """
     Load a DataFrame into a target database engine.
-
-    Args:
-        df:             The DataFrame to load.
-        table_name:     Target table or collection.
-        db_type:        Target database type: 'cassandra', 'mongo', or 'postgres'.
-        connection_uri: Explicit connection string (for Mongo/Postgres). If missing, uses settings.
-        repo:           Optional pre-configured Repository instance (mainly for Cassandra).
-        batch_size:     Batch logging counter.
-
-    Returns:
-        Summary dict with inserted/failed counts.
     """
     total = len(df)
     inserted = 0
@@ -51,7 +43,7 @@ def load_to_database(
     logger.info(f"Loading {total} records into '{table_name}' using {db_type.upper()}")
 
     if db_type == "postgres":
-        inserted, failed = _load_postgres(df, table_name, connection_uri)
+        inserted, failed = _load_postgres(df, table_name, connection_uri, batch_size)
     elif db_type == "mongo":
         inserted, failed = _load_mongo(df, table_name, connection_uri)
     elif db_type == "cassandra":
@@ -75,13 +67,12 @@ def load_to_database(
     return summary
 
 
-def _load_cassandra(df: pd.DataFrame, table_name: str, repo: Optional[CassandraRepository], batch_size: int):
+def _load_cassandra(df: pd.DataFrame, table_name: str, repo: Optional[BaseRepo], batch_size: int):
     settings = get_settings().extract.cassandra
     own_repo = False
-    inserted = 0
-    failed = 0
 
     if repo is None:
+        from repo.cassandra_repo import CassandraRepository
         repo = CassandraRepository(
             username=settings.username,
             password=settings.password,
@@ -92,38 +83,43 @@ def _load_cassandra(df: pd.DataFrame, table_name: str, repo: Optional[CassandraR
             repo.set_keyspace(settings.keyspace)
         own_repo = True
 
-    for idx, row in df.iterrows():
-        record = row.to_dict()
-        cleaned_record = {}
-        for k, v in record.items():
-            if pd.isna(v):
-                cleaned_record[k] = None
-            elif hasattr(v, "item"): 
-                cleaned_record[k] = v.item()
-            else:
-                cleaned_record[k] = v
+    # Clean DataFrame for Cassandra (remove NaNs, convert numpy types)
+    records = _prepare_records(df)
 
-        try:
-            repo.add_sales_record(
-                table_name=table_name,
-                record=cleaned_record,
-            )
-            inserted += 1
-        except Exception as exc:
-            failed += 1
-            if failed <= 5:
-                logger.warning(f"[LOAD] Cassandra Insert failed — Row {idx}: {exc}")
-
-        if inserted > 0 and inserted % batch_size == 0:
-            logger.info(f"[LOAD] Progress: {inserted}/{len(df)} inserted")
-
-    if own_repo:
-        try:
+    # Use the new bulk_insert method for efficiency
+    try:
+        if not repo.is_connected():
+            repo.connect()
+        result = repo.bulk_insert(
+            table_name=table_name,
+            records=records,
+            batch_size=batch_size
+        )
+        return result["inserted"], result["failed"]
+    finally:
+        if own_repo:
             repo.close()
-        except:
-            pass
-            
-    return inserted, failed
+
+
+def _load_postgres(df: pd.DataFrame, table_name: str, uri: Optional[str], batch_size: int):
+    import os
+    from repo.postgres_repo import PostgresRepository
+    
+    conn_str = uri or os.getenv("POSTGRES_URI")
+    repo = PostgresRepository(connection_uri=conn_str)
+    
+    records = _prepare_records(df)
+    
+    try:
+        repo.connect()
+        result = repo.bulk_insert(
+            table_name=table_name,
+            records=records,
+            batch_size=batch_size
+        )
+        return result["inserted"], result["failed"]
+    finally:
+        repo.close()
 
 
 def _load_mongo(df: pd.DataFrame, collection_name: str, uri: Optional[str]):
@@ -133,7 +129,6 @@ def _load_mongo(df: pd.DataFrame, collection_name: str, uri: Optional[str]):
         raise ImportError("pymongo is not installed. Run `pip install pymongo`.")
         
     settings = get_settings()
-    # Fallback to a default setting if implicit config block isn't defined explicitly
     conn_str = uri or getattr(settings, 'mongo_uri', "mongodb://127.0.0.1:27017")
     
     client = pymongo.MongoClient(conn_str)
@@ -152,21 +147,18 @@ def _load_mongo(df: pd.DataFrame, collection_name: str, uri: Optional[str]):
         client.close()
 
 
-def _load_postgres(df: pd.DataFrame, table_name: str, uri: Optional[str]):
-    try:
-        from sqlalchemy import create_engine
-    except ImportError:
-        raise ImportError("SQLAlchemy is not installed. To route to Postgres, run `pip install psycopg2-binary sqlalchemy`.")
-
-    conn_str = uri or "postgresql://user:password@localhost:5432/mushtari"
-    engine = create_engine(conn_str)
-    
-    try:
-        # Pandas to_sql natively manages bulk insertions over postgres
-        df.to_sql(table_name, engine, if_exists="append", index=False)
-        return len(df), 0
-    except Exception as e:
-        logger.error(f"[LOAD] PostgreSQL table write failed: {e}")
-        return 0, len(df)
-    finally:
-        engine.dispose()
+def _prepare_records(df: pd.DataFrame) -> List[Dict[str, Any]]:
+    """Convert DataFrame to a list of dicts with Python primitives."""
+    records = []
+    for _, row in df.iterrows():
+        record = row.to_dict()
+        cleaned = {}
+        for k, v in record.items():
+            if pd.isna(v):
+                cleaned[k] = None
+            elif hasattr(v, "item"): 
+                cleaned[k] = v.item()
+            else:
+                cleaned[k] = v
+        records.append(cleaned)
+    return records

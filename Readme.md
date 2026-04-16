@@ -43,9 +43,10 @@
 |---|---|
 | **Demand Prediction** | XGBoost regression on engineered lag features to predict upcoming demand |
 | **Time-Series Forecasting** | ARIMA / ARIMAX models with automatic parameter tuning via `pmdarima` |
-| **On-Demand Retraining** | Trigger model retraining per product through a single API call |
+| **Repository Pattern** | Standardised `BaseRepo` interface for seamless DB switching (Cassandra, SQL, Mongo) |
+| **High-Performance ETL** | Optimized data ingestion via Cassandra batch operations and Prefect orchestration |
+| **Flexible Querying** | Support for complex range filters (`__gte`, `__lte`) across all storage backends |
 | **Experiment Tracking** | MLflow integration for tracking runs, parameters, and metrics |
-| **Containerised Deployment** | Production-ready Dockerfile with non-root user and Uvicorn server |
 
 ---
 
@@ -104,11 +105,12 @@
 
 ### Design Patterns
 
-- **Repository Pattern** — `CassandraRepository` abstracts all database I/O, keeping business logic DB-agnostic.
-- **Service Layer** — `serving/services/` orchestrates model loading, data retrieval, and prediction in cohesive units.
-- **Singleton Model Cache** — `serving/loaders/load_models.py` ensures each model is loaded into memory only once.
-- **Dependency Injection** — Services accept an optional `repo` parameter, making them fully testable with mocks.
-- **Centralised Logging** — All modules use `get_logger(__name__)` from `infrastructure/logging/logger.py`.
+- **Abstract Repository Pattern** — All data access flows through a unified `BaseRepo` contract (defined in `repo/base.py`), ensuring the system remains high-performing and database-agnostic.
+- **Service Layer Orchestration** — `serving/services/` separates business logic from API concerns, handling model loading and forecasting in isolated units.
+- **Batch Processing** — ETL loaders utilize `bulk_insert` via Cassandra `BatchStatement` for ultra-fast ingestion of historical records.
+- **Suffix Filtering** — The repository layer supports Django-style suffix filters (`field__gte`, `field__lt`) for intuitive range queries without custom SQL boilerplate.
+- **Singleton Model Cache** — `serving/loaders/load_models.py` ensures each XGBoost model is loaded into memory only once.
+- **Component-Based Logging** — Standardised telemetry and logging via Loguru and Prometheus.
 
 ---
 
@@ -340,11 +342,12 @@ MongoDB support is retained for backward compatibility. Default connection: `mon
 
 ## Roadmap
 
-- [x] **Optimize Inference Endpoints** — Implemented async thread-offloading, batching, and TTL caching.
-- [x] **Develop Data Gatekeeper** — Implemented Pandera-based strict business rule validation.
-- [x] **Implement Usage Telemetry** — Added Prometheus instrumentation and structured metrics logging.
-- [x] **Define Market Fit KPIs** — Added business-centric metrics (Bias, Inventory Accuracy).
-- [x] **Execute UAT Environment** — Created Docker Compose orchestrator and UAT verification scripts.
+- [x] **Standardise Data Access Layer** — Implemented `BaseRepo` abstract contract for all repository implementations.
+- [x] **Optimize Cassandra Load** — Replaced row-by-row insertion with high-performance `BatchStatement` operations.
+- [x] **Unified Query Interface** — Added suffix-based range filtering for flexible data retrieval.
+- [x] **Stabilise Environment** — Resolved versioning conflicts between statsmodels, pandera, and scipy.
+- [ ] **Next Gen Forecasting** — Integrate Transformer-based models for long-horizon demand planning.
+- [ ] **Advanced Monitoring** — Add automated model drift detection and retraining triggers (Drift Guard).
 
 ---
 

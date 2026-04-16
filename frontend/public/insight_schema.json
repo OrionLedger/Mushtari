@@ -1,0 +1,33 @@
+{
+  "title": "Inventory Health Vision",
+  "insight": "Current stock levels for High-Margin ceramics are healthy, but 'Traditional Kiln' series shows a declining retention rate in recurring customers. Recommend a loyalty promotion.",
+  "visuals": [
+    {
+      "chart_type": "bar",
+      "title": "Stock Distribution by Warehouse",
+      "metric": "Units",
+      "dimension": "Location",
+      "data": [
+        { "name": "Warehouse A", "val": 450 },
+        { "name": "Warehouse B", "val": 320 },
+        { "name": "Retail S1", "val": 85 }
+      ]
+    },
+    {
+      "chart_type": "line",
+      "title": "Monthly Restock Costs",
+      "metric": "USD",
+      "dimension": "Month",
+      "data": [
+        { "name": "Jan", "val": 12000 },
+        { "name": "Feb", "val": 15000 },
+        { "name": "Mar", "val": 11000 },
+        { "name": "Apr", "val": 18000 }
+      ]
+    }
+  ],
+  "alerts": [
+    { "type": "warning", "message": "Lead time from supplier 'Fakhoury Intl' has increased to 45 days." }
+  ],
+  "layout": "grid"
+}

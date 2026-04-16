@@ -46,7 +46,7 @@ def test_predict_success(mock_predict):
         "end_date": "2026-02-01"
     })
     assert response.status_code == 200
-    assert response.json() == {"prediction": 100.0}
+    assert response.json() == {"predictions": {"prediction": 100.0}}
     mock_predict.assert_called_once_with(
         product_id=1,
         columns=["lag_1"],

@@ -1,8 +1,12 @@
 data/
-.gitignore
 __pycache__/
 reports/
 mlruns/
 mlflow.db
 .pytest_cache/
 logs/
+.env
+.venv/
+venv/
+*.log
+.DS_Store
