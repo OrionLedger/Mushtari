@@ -31,3 +31,12 @@ def log_metric(name: str, value: Any, tags: Optional[Dict[str, str]] = None):
     """
     tag_str = " ".join([f"{k}={v}" for k, v in tags.items()]) if tags else ""
     logger.info(f"telemetry: metric name={name} value={value} {tag_str}")
+
+def log_database_latency(operation: str, table: str, duration: float, db_type: str):
+    """
+    Specific logger for database query performance monitoring (Phase 4).
+    """
+    logger.info(
+        f"telemetry: db_latency type={db_type} op={operation} table={table} "
+        f"duration_seconds={duration:.4f}"
+    )

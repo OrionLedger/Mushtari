@@ -9,9 +9,11 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import create_engine, text, MetaData, Table, inspect
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
+import time
 
 from repo.base import BaseRepo
 from infrastructure.logging.logger import get_logger
+from infrastructure.monitoring.telemetry import log_database_latency
 
 logger = get_logger(__name__)
 
@@ -24,13 +26,23 @@ class PostgresRepository(BaseRepo):
 
     def __init__(self, connection_uri: Optional[str] = None, **kwargs):
         """
-        Initialize the Postgres repository.
-        
-        Args:
-            connection_uri: Full SQLAlchemy connection URI (e.g., postgresql://user:pass@host/db).
-            **kwargs: Individual connection params if URI is not provided.
+        Initialize the Postgres repository. Defaults to settings from environment variables.
         """
-        self.uri = connection_uri or self._build_uri(**kwargs)
+        from etl.config.settings import get_settings
+        settings = get_settings().extract.postgres
+
+        # High-priority: explicit URI
+        self.uri = connection_uri or settings.uri
+        
+        # If still no URI, build from individual components (priority: kwargs > settings)
+        if not self.uri:
+            user = kwargs.get("user") or settings.user
+            password = kwargs.get("password") or settings.password
+            host = kwargs.get("host") or settings.host
+            port = kwargs.get("port") or settings.port
+            dbname = kwargs.get("dbname") or settings.dbname
+            self.uri = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
+
         self.engine: Optional[Engine] = None
         self._connected = False
 
@@ -55,7 +67,13 @@ class PostgresRepository(BaseRepo):
             if "connection_uri" in kwargs:
                 self.uri = kwargs["connection_uri"]
 
-            self.engine = create_engine(self.uri, pool_pre_ping=True)
+            self.engine = create_engine(
+                self.uri, 
+                pool_pre_ping=True,
+                pool_size=10,
+                max_overflow=20,
+                pool_timeout=30
+            )
             # Test connection
             with self.engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
@@ -87,25 +105,27 @@ class PostgresRepository(BaseRepo):
         filters: Optional[Dict[str, Any]] = None,
         columns: Optional[List[str]] = None,
     ) -> List[Dict[str, Any]]:
-        """
-        Retrieve records with support for suffix filters (__gte, __lte, etc.).
-        """
         if not self._connected:
             self.connect()
 
-        col_str = ", ".join(columns) if columns else "*"
-        query_str = f"SELECT {col_str} FROM {table_name}"
-        
-        where_clause, params = self._build_where_clause(filters)
-        if where_clause:
-            query_str += f" WHERE {where_clause}"
+        start = time.perf_counter()
+        query = f"SELECT {', '.join(columns) if columns else '*'} FROM {table_name}"
+        if filters:
+            # Simple WHERE clause construction
+            where_clauses = [f"{k} = :{k}" for k in filters.keys()]
+            query += f" WHERE {' AND '.join(where_clauses)}"
 
         try:
             with self.engine.connect() as conn:
-                result = conn.execute(text(query_str), params)
-                return [dict(row._mapping) for row in result]
+                result = conn.execute(text(query), filters or {})
+                data = [dict(row._mapping) for row in result]
+                
+                # Phase 4 Telemetry
+                log_database_latency("get_record", table_name, time.perf_counter() - start, "postgres")
+                
+                return data
         except SQLAlchemyError as e:
-            logger.error(f"Query failed on {table_name}: {e}")
+            logger.error(f"Error fetching from {table_name}: {e}")
             return []
 
     def get_record_by_id(
@@ -122,13 +142,24 @@ class PostgresRepository(BaseRepo):
 
     def add_record(self, table_name: str, record: Dict[str, Any]) -> bool:
         """Insert a single record."""
+        if not self._connected:
+            self.connect()
         cols = ", ".join(record.keys())
         placeholders = ", ".join([f":{k}" for k in record.keys()])
         query = f"INSERT INTO {table_name} ({cols}) VALUES ({placeholders})"
 
         try:
+            # Serialize dictionaries and lists for JSONB columns if using raw SQL
+            import json
+            serialized_record = {}
+            for k, v in record.items():
+                if isinstance(v, (dict, list)):
+                    serialized_record[k] = json.dumps(v)
+                else:
+                    serialized_record[k] = v
+
             with self.engine.connect() as conn:
-                conn.execute(text(query), record)
+                conn.execute(text(query), serialized_record)
                 conn.commit()
             return True
         except SQLAlchemyError as e:
@@ -144,6 +175,8 @@ class PostgresRepository(BaseRepo):
         """Perform batch inserts for higher performance."""
         if not records:
             return {"total": 0, "inserted": 0, "failed": 0}
+        if not self._connected:
+            self.connect()
 
         cols = ", ".join(records[0].keys())
         placeholders = ", ".join([f":{k}" for k in records[0].keys()])
@@ -153,10 +186,22 @@ class PostgresRepository(BaseRepo):
         inserted = 0
         
         try:
+            import json
+            # Serialize for batch
+            processed_records = []
+            for r in records:
+                processed_row = {}
+                for k, v in r.items():
+                    if isinstance(v, (dict, list)):
+                        processed_row[k] = json.dumps(v)
+                    else:
+                        processed_row[k] = v
+                processed_records.append(processed_row)
+
             with self.engine.connect() as conn:
                 # Process in chunks
                 for i in range(0, total, batch_size):
-                    batch = records[i : i + batch_size]
+                    batch = processed_records[i : i + batch_size]
                     conn.execute(text(query), batch)
                     inserted += len(batch)
                 conn.commit()
@@ -173,10 +218,18 @@ class PostgresRepository(BaseRepo):
         id_column: str = "id",
     ) -> bool:
         """Update fields for a specific record."""
+        if not self._connected:
+            self.connect()
         set_clause = ", ".join([f"{k} = :{k}" for k in updates.keys()])
         query = f"UPDATE {table_name} SET {set_clause} WHERE {id_column} = :_target_id"
         
-        params = {**updates, "_target_id": record_id}
+        params = {"_target_id": record_id}
+        import json
+        for k, v in updates.items():
+            if isinstance(v, (dict, list)):
+                params[k] = json.dumps(v)
+            else:
+                params[k] = v
 
         try:
             with self.engine.connect() as conn:
@@ -194,6 +247,8 @@ class PostgresRepository(BaseRepo):
         id_column: str = "id",
     ) -> bool:
         """Delete a record by ID."""
+        if not self._connected:
+            self.connect()
         query = f"DELETE FROM {table_name} WHERE {id_column} = :record_id"
         try:
             with self.engine.connect() as conn:
@@ -231,6 +286,49 @@ class PostgresRepository(BaseRepo):
         except SQLAlchemyError as e:
             logger.error(f"Count failed on {table_name}: {e}")
             return 0
+
+    def get_tables(self) -> List[str]:
+        """Retrieve all physical table names in the connected database."""
+        if not self._connected:
+            self.connect()
+        try:
+            inspector = inspect(self.engine)
+            return inspector.get_table_names()
+        except Exception as e:
+            logger.error(f"Failed to get table names: {e}")
+            return []
+
+    def get_table_columns(self, table_name: str) -> List[Dict[str, str]]:
+        """Retrieve column names and types using SQLAlchemy inspector."""
+        if not self._connected:
+            self.connect()
+        try:
+            inspector = inspect(self.engine)
+            columns = inspector.get_columns(table_name)
+            return [
+                {"name": col["name"], "type": str(col["type"])}
+                for col in columns
+            ]
+        except Exception as e:
+            logger.error(f"Failed to get columns for {table_name}: {e}")
+            return []
+
+    def execute_script(self, script_content: str) -> bool:
+        """
+        Executes a raw multi-statement SQL script as a single call.
+        This handles complex blocks (DO, BEGIN/END) correctly.
+        """
+        if not self._connected:
+            self.connect()
+        
+        try:
+            with self.engine.connect() as conn:
+                conn.execute(text(script_content))
+                conn.commit()
+            return True
+        except SQLAlchemyError as e:
+            logger.error(f"Script execution failed: {e}")
+            return False
 
     # ── Helper ──────────────────────────────────────────────────────────
 

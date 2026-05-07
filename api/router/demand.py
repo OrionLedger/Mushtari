@@ -23,6 +23,7 @@ def document_root():
         "message": "Welcome to the Demand Analysis API",
         "description": "This API provides endpoints for demand prediction, forecasting, and data management.",
         "endpoints": {
+            "/api/products": "GET - List all unique product IDs available in the database.",
             "/api/predict": "POST - Predict product demand based on historical features.",
             "/api/predict/batch": "POST - Predict demand for multiple products concurrently.",
             "/api/forecast": "GET - Forecast demand for a given product ID and horizon. (Cached)",
@@ -31,6 +32,40 @@ def document_root():
         },
         "swagger_docs": "/docs"
     }
+
+@router.get("/products")
+async def list_products_api():
+    """
+    List unique product IDs from the sales table.
+    """
+    try:
+        from repo import get_repository
+        from etl.config.settings import get_settings
+        settings = get_settings().extract.cassandra
+        repo = get_repository(
+            "cassandra",
+            username=settings.username,
+            password=settings.password,
+            contact_points=settings.contact_points,
+            port=settings.port,
+            keyspace=settings.keyspace
+        )
+        
+        # In a real app we'd query a Products table, here we'll scan unique product_id from sales
+        # Warning: Direct scan of partition keys in Cassandra can be slow on large tables
+        # But for this MVP/dashboard, we'll use it.
+        # Ideally, we'd have a 'products' table.
+        rows = await run_in_threadpool(
+            repo.get_record,
+            table_name=settings.default_table,
+            columns=["product_id"]
+        )
+        
+        # Deduplicate
+        pids = sorted(list(set(row["product_id"] for row in rows)))
+        return [{"id": str(pid), "name": f"Product {pid}"} for pid in pids]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed fetching products: {str(e)}")
 
 @router.post("/predict")
 async def predict_api(payload: PredictPayload):

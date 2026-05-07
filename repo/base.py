@@ -198,15 +198,42 @@ class BaseRepo(ABC):
         table_name: str,
         filters: Optional[Dict[str, Any]] = None,
     ) -> int:
-        """
-        Count records in a table, optionally applying equality filters.
+        ...
 
-        Args:
-            table_name: The target table / collection.
-            filters:    Optional dict of column → value equality constraints.
+    @abstractmethod
+    def get_tables(self) -> List[str]:
+        """
+        Retrieve all table / collection names in the current database / keyspace.
 
         Returns:
-            The total number of matching records.
+            A list of table names.
+        """
+        ...
+
+    @abstractmethod
+    def get_table_columns(self, table_name: str) -> List[Dict[str, str]]:
+        """
+        Retrieve the list of columns and their data types for a given table.
+
+        Args:
+            table_name: Name of the table to inspect.
+
+        Returns:
+            A list of dicts: [{"name": str, "type": str}, ...]
+        """
+        ...
+
+    @abstractmethod
+    def execute_script(self, script_content: str) -> bool:
+        """
+        Execute a multi-statement database script (SQL/CQL).
+        Useful for infrastructure initialization.
+
+        Args:
+            script_content: The raw string containing all statements.
+
+        Returns:
+            True if all statements executed, False otherwise.
         """
         ...
 

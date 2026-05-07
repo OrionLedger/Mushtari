@@ -17,6 +17,70 @@ from etl.config.settings import get_settings
 logger = get_logger(__name__)
 
 @task(
+    name="load-order-results",
+    retries=3,
+    description="Multi-table load for order mode (backlog, facts, customers, aggregation).",
+)
+def load_order_results(
+    df_backlog: pd.DataFrame,
+    df_sales: pd.DataFrame,
+    df_customers: pd.DataFrame,
+    db_uri: Optional[str] = None,
+    batch_size: int = 200,
+) -> Dict[str, Any]:
+    """
+    Orchestrates the granular load process to multiple relational tables.
+    """
+    from repo.postgres_repo import PostgresRepository
+    import os
+    
+    uri = db_uri or os.getenv("POSTGRES_URI")
+    repo = PostgresRepository(connection_uri=uri)
+    
+    results = {"inserted": 0, "total": 0, "failed": 0, "tables": {}}
+    
+    try:
+        repo.connect()
+        
+        # 1. Load Backlog
+        if not df_backlog.empty:
+            backlog_res = repo.bulk_insert("orders_backlog", _prepare_records(df_backlog), batch_size)
+            results["tables"]["orders_backlog"] = backlog_res
+            results["inserted"] += backlog_res["inserted"]
+            results["total"] += backlog_res["total"]
+            
+        # 2. Load Sales Facts
+        if not df_sales.empty:
+            sales_res = repo.bulk_insert("fact_sales", _prepare_records(df_sales), batch_size)
+            results["tables"]["fact_sales"] = sales_res
+            results["inserted"] += sales_res["inserted"]
+            results["total"] += sales_res["total"]
+            
+        # 3. Load Customers (Upsert needed, but bulk_insert is simple)
+        if not df_customers.empty:
+            cust_res = repo.bulk_insert("dim_customers", _prepare_records(df_customers), batch_size)
+            results["tables"]["dim_customers"] = cust_res
+            
+        # 4. Load Aggregations
+        if not df_sales.empty:
+            # product_id, sale_date (DATE part), total_qty, total_rev, order_count
+            df_agg = df_sales.copy()
+            df_agg['sale_date'] = pd.to_datetime(df_agg['sale_date']).dt.date
+            agg = df_agg.groupby(['product_id', 'sale_date']).agg(
+                total_qty=('quantity', 'sum'),
+                total_revenue=('gross_sale', 'sum'),
+                order_count=('order_id', 'nunique')
+            ).reset_index()
+            agg_res = repo.bulk_insert("agg_daily_demand", _prepare_records(agg), batch_size)
+            results["tables"]["agg_daily_demand"] = agg_res
+            
+        results["status"] = "completed"
+        return results
+    finally:
+        repo.close()
+
+
+@task(
     name="load-to-database",
     retries=3,
     retry_delay_seconds=10,

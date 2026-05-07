@@ -11,6 +11,8 @@ from cassandra.cluster import Cluster, Session
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.query import SimpleStatement, BatchStatement, BatchType
 import logging
+import time
+from infrastructure.monitoring.telemetry import log_database_latency
 
 from .base import BaseRepo
 
@@ -31,7 +33,8 @@ class CassandraRepository(BaseRepo):
         password: Optional[str] = None,
         contact_points: Optional[List[str]] = None,
         port: Optional[int] = None,
-        keyspace: Optional[str] = None
+        keyspace: Optional[str] = None,
+        **kwargs
     ) -> None:
         """
         Initialize the repository. Defaults to settings from environment variables.
@@ -42,15 +45,14 @@ class CassandraRepository(BaseRepo):
         self._cluster: Optional[Cluster] = None
         self._session: Optional[Session] = None
         
-        # Use provided args or fall back to global settings
+        # Resolve parameters: Prioritize arguments, then fall back to global settings
         username = username or settings.username
         password = password or settings.password
         contact_points = contact_points or settings.contact_points
         port = port or settings.port
-        keyspace = keyspace or settings.keyspace
+        # Note: We use settings.keyspace if keyspace argument is None
+        keyspace = keyspace if keyspace is not None else settings.keyspace
 
-        self._keyspace: Optional[str] = keyspace
-        
         self._conn_args = {
             "username": username,
             "password": password,
@@ -58,10 +60,11 @@ class CassandraRepository(BaseRepo):
             "port": port,
             "keyspace": keyspace
         }
+        self._keyspace = keyspace
         
         # Initial connection attempt
         try:
-            self.connect(**self._conn_args)
+            self.connect()
         except Exception as e:
             logger.warning(f"Initial connection attempt in __init__ failed: {e}")
 
@@ -112,6 +115,13 @@ class CassandraRepository(BaseRepo):
                 self._cluster = None
                 self._session = None
                 logger.info("Cassandra repository connection closed.")
+
+    @property
+    def session(self) -> Session:
+        """Expose the active session, connecting if necessary."""
+        if not self._session:
+            self.connect()
+        return self._session
 
     def is_connected(self) -> bool:
         """Determine if the repository has an active session."""
@@ -207,22 +217,30 @@ class CassandraRepository(BaseRepo):
         if not self._session:
             self.connect()
 
-        for i in range(0, total, batch_size):
-            chunk = records[i : i + batch_size]
-            batch = BatchStatement(batch_type=BatchType.UNLOGGED)
-            
-            for rec in chunk:
-                cols = ", ".join(rec.keys())
-                placeholders = ", ".join(["%s"] * len(rec))
-                query = f"INSERT INTO {table_name} ({cols}) VALUES ({placeholders})"
-                batch.add(SimpleStatement(query), list(rec.values()))
-            
-            try:
+        start = time.perf_counter()
+        try:
+            # We assume all records have the same keys (consistent with bulk use)
+            keys = records[0].keys()
+            columns = ", ".join(keys)
+            placeholders = ", ".join(["%s"] * len(keys))
+            query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
+            prepared = self._session.prepare(query)
+
+            for i in range(0, len(records), batch_size):
+                batch = BatchStatement(batch_type=BatchType.LOGGED)
+                current_batch = records[i : i + batch_size]
+                for record in current_batch:
+                    batch.add(prepared, [record[k] for k in keys])
+                
                 self._session.execute(batch)
-                inserted += len(chunk)
-            except Exception as e:
-                logger.error(f"Bulk insert failed at offset {i}: {e}")
-                failed += len(chunk)
+                inserted += len(current_batch)
+
+            # Phase 4 Telemetry
+            log_database_latency("bulk_insert", table_name, time.perf_counter() - start, "cassandra")
+            
+        except Exception as e:
+            logger.error(f"Bulk insert into {table_name} failed: {e}")
+            failed = len(records) - inserted
 
         return {"total": total, "inserted": inserted, "failed": failed}
 
@@ -303,6 +321,61 @@ class CassandraRepository(BaseRepo):
         except Exception as e:
             logger.error(f"Count failed for {table_name}: {e}")
             return 0
+
+    def get_tables(self) -> List[str]:
+        """Retrieve all table names in the current keyspace."""
+        if not self._keyspace:
+            return []
+        if not self._session:
+            self.connect()
+        try:
+            ks_meta = self._cluster.metadata.keyspaces.get(self._keyspace)
+            return list(ks_meta.tables.keys()) if ks_meta else []
+        except Exception as e:
+            logger.error(f"Failed to get table names: {e}")
+            return []
+
+    def get_table_columns(self, table_name: str) -> List[Dict[str, str]]:
+        """Retrieve column names and types using Cassandra driver metadata."""
+        if not self._keyspace:
+            return []
+        if not self._session:
+            self.connect()
+        try:
+            ks_meta = self._cluster.metadata.keyspaces.get(self._keyspace)
+            if not ks_meta or table_name not in ks_meta.tables:
+                return []
+            
+            table_meta = ks_meta.tables[table_name]
+            return [
+                {"name": name, "type": str(col.cql_type)}
+                for name, col in table_meta.columns.items()
+            ]
+        except Exception as e:
+            logger.error(f"Failed to get columns for {table_name}: {e}")
+            return []
+
+    def execute_script(self, script_content: str) -> bool:
+        """
+        Executes a multi-statement CQL script.
+        Splits by semicolon and executes statements one by one.
+        """
+        if not self._session:
+            self.connect()
+        
+        # Split by semicolon and filter empty lines/comments
+        statements = [s.strip() for s in script_content.split(';') if s.strip()]
+        
+        try:
+            for statement in statements:
+                # Remove common single-line comments before execution
+                clean_stmt = "\n".join([line for line in statement.splitlines() if not line.strip().startswith("--")])
+                if clean_stmt.strip():
+                    self._session.execute(clean_stmt)
+            return True
+        except Exception as e:
+            logger.error(f"CQL script execution failed: {e}")
+            return False
 
     # ── Backward Compatibility Hooks ────────────────────────────────────
 

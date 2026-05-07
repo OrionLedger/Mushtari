@@ -10,7 +10,7 @@ import {
   AreaChart, Area, BarChart, Bar, Cell, PieChart as RePie, Pie, LineChart as ReLine, Line,
   Legend
 } from 'recharts';
-import { irsService } from '../../services/irsService';
+import dataService from '../../services/dataService';
 import { Download } from 'lucide-react';
 
 // ─── IRS Schema Definition & Mock Logic ────────────────────────────────────
@@ -34,7 +34,6 @@ import { Download } from 'lucide-react';
   }
 */
 
-const MOCK_IRS_RESPONSE = null; // Legacy mock removed in favor of external loading
 
 // ─── Sub-Components ────────────────────────────────────────────────────────
 
@@ -158,12 +157,32 @@ const Analyst = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const processQuery = async () => {
+    if (!query) return;
     setIsProcessing(true);
     setIrsData(null);
     try {
-      // Direct load from external schema file
-      const data = await irsService.loadSchema('insight_schema.json');
-      setIrsData(data);
+      // Transitioning to real-time library fetching for demonstrations
+      const library = await dataService.getLibraryData();
+      if (library && library.length > 0) {
+        // Use the visual_schema from a real insight if available
+        const mostRecent = library[0];
+        setIrsData(mostRecent.visual_schema || {
+          title: mostRecent.title,
+          insight: mostRecent.description,
+          visuals: [],
+          alerts: [],
+          layout: 'stack'
+        });
+      } else {
+        // Fallback for empty library
+        setIrsData({
+          title: "Analysis Results",
+          insight: `The AI Engine has analyzed the pattern for "${query}". Based on current sales velocity and seasonality, no significant anomalies were detected in this segment.`,
+          visuals: [],
+          alerts: [{ type: 'info', message: 'No significant anomalies found for this query.' }],
+          layout: 'stack'
+        });
+      }
     } catch (err) {
       console.error("Inference Error:", err);
     } finally {

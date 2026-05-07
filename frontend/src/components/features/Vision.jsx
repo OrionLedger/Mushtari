@@ -1,24 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Zap, Calendar, Crosshair, AlertCircle, RefreshCw,
-  TrendingUp, Activity, BarChart3, Settings2, Box, Search, ChevronDown, User
+  Zap, Calendar, AlertCircle, RefreshCw,
+  TrendingUp, Activity, Settings2, Box, Search
 } from 'lucide-react';
 import {
   AreaChart, Area, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend, ReferenceLine
 } from 'recharts';
-import { aiService } from '../../services/api';
-
-// ─── Mock Product Data for Search ───────────────────────────────────────────
-const MOCK_PRODUCTS = [
-  { id: '1', name: 'Product Alpha' },
-  { id: '102', name: 'Premium Ceramic Bowl' },
-  { id: '505', name: 'Vintage Tea Set' },
-  { id: '1004', name: 'Handcrafted Vase' },
-  { id: '2020', name: 'Minimalist Plate' },
-  { id: '3045', name: 'Stoneware Mug' },
-];
+import dataService from '../../services/dataService';
 
 // ─── Shared UI Components ──────────────────────────────────────────────────
 const InputGroup = ({ label, icon: Icon, children, style = {} }) => (
@@ -48,16 +38,32 @@ const inputBaseStyle = {
 
 // ─── Product Search Dropdown Component ─────────────────────────────────────
 const ProductSelector = ({ selectedId, onSelect }) => {
+  const [products, setProducts]     = useState([]);
+  const [loading, setLoading]       = useState(true);
   const [searchMode, setSearchMode] = useState('name'); // 'id' or 'name'
-  const [query, setQuery] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const [query, setQuery]           = useState('');
+  const [isOpen, setIsOpen]         = useState(false);
+  const dropdownRef                 = useRef(null);
 
-  const filtered = MOCK_PRODUCTS.filter(p =>
-    p.name.toLowerCase().includes(query.toLowerCase()) || p.id.includes(query)
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const data = await dataService.getProducts();
+        setProducts(data || []);
+      } catch (err) {
+        console.error("Failed to load products:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  const filtered = products.filter(p =>
+    (p.name || '').toLowerCase().includes(query.toLowerCase()) || (p.id || '').includes(query)
   );
 
-  const selectedProduct = MOCK_PRODUCTS.find(p => p.id === selectedId);
+  const selectedProduct = products.find(p => p.id === selectedId);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -86,7 +92,8 @@ const ProductSelector = ({ selectedId, onSelect }) => {
         <InputGroup label={searchMode === 'id' ? "Product ID" : "Product Name"} icon={searchMode === 'id' ? Box : Search}>
           <input
             style={inputBaseStyle}
-            placeholder={searchMode === 'id' ? "Enter numerical ID..." : "Start typing product name..."}
+            disabled={loading}
+            placeholder={loading ? "Loading products..." : (searchMode === 'id' ? "Enter numerical ID..." : "Start typing product name...")}
             value={isOpen ? query : (selectedProduct ? (searchMode === 'id' ? selectedProduct.id : selectedProduct.name) : query)}
             onFocus={() => setIsOpen(true)}
             onChange={(e) => { setQuery(e.target.value); setIsOpen(true); }}
@@ -116,7 +123,7 @@ const ProductSelector = ({ selectedId, onSelect }) => {
               </div>
             )) : (
               <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                No matching products found
+                {loading ? 'Refreshing SKU list...' : 'No matching products found'}
               </div>
             )}
           </div>
@@ -127,9 +134,7 @@ const ProductSelector = ({ selectedId, onSelect }) => {
 };
 
 // ─── Main Vision Component ──────────────────────────────────────────────────
-const Vision = () => {
-  const [globalProductId, setGlobalProductId] = useState('1');
-
+const Vision = ({ globalProductId, setGlobalProductId }) => {
   // ── Predict State ──
   const [pLoading, setPLoading] = useState(false);
   const [pData, setPData] = useState(null);
@@ -147,15 +152,19 @@ const Vision = () => {
     setPLoading(true);
     setPError(null);
     try {
-      const res = await aiService.predictDemand({
+      const res = await dataService.predictDemand({
         product_id: parseInt(globalProductId),
         features: ['quantity'],
         start_date: pDates.start,
         end_date: pDates.end,
       });
-      setPData(res.predictions.map((val, i) => ({ name: `D${i + 1}`, val })));
+      if (res && res.predictions) {
+        setPData(res.predictions.map((val, i) => ({ name: `D${i + 1}`, val })));
+      } else {
+        setPData([]);
+      }
     } catch (err) {
-      setPError('Inference engine connection failed');
+      setPError(err.message || 'Inference engine connection failed');
     } finally {
       setPLoading(false);
     }
@@ -166,10 +175,10 @@ const Vision = () => {
     setFLoading(true);
     setFError(null);
     try {
-      const res = await aiService.getForecast(globalProductId, parseInt(fHorizon));
+      const res = await dataService.getForecast(globalProductId, parseInt(fHorizon));
       setFData(Array.isArray(res) ? res : res.forecast || []);
     } catch (err) {
-      setFError('ARIMA model execution failed');
+      setFError(err.message || 'ARIMA model execution failed');
     } finally {
       setFLoading(false);
     }
@@ -192,7 +201,7 @@ const Vision = () => {
             <button className="btn btn-ghost" style={{ border: '1px solid var(--border-color)', height: '44px' }}>
               <Settings2 size={18} />
             </button>
-            <button onClick={() => { handlePredict(); handleForecast(); }} className="btn btn-primary" style={{ height: '44px', padding: '0 24px' }}>
+            <button onClick={() => { handlePredict(); handleForecast(); }} className="btn btn-primary" style={{ height: '44px', padding: '0 24px' }} disabled={!globalProductId}>
               <RefreshCw size={18} /> Run All
             </button>
           </div>
@@ -221,7 +230,7 @@ const Vision = () => {
                   <input type="date" style={{ ...inputBaseStyle, paddingLeft: '12px', width: '135px', height: '40px' }} value={pDates.end} onChange={e => setPDates({ ...pDates, end: e.target.value })} />
                 </div>
               </InputGroup>
-              <button onClick={handlePredict} className="btn btn-primary" style={{ padding: '0 20px', height: '40px', marginTop: '18px', fontSize: '13px' }} disabled={pLoading}>
+              <button onClick={handlePredict} className="btn btn-primary" style={{ padding: '0 20px', height: '40px', marginTop: '18px', fontSize: '13px' }} disabled={pLoading || !globalProductId}>
                 {pLoading ? <RefreshCw size={16} className="spin" /> : 'Run Predict'}
               </button>
             </div>
@@ -263,7 +272,7 @@ const Vision = () => {
               <InputGroup label="Horizon (Days)" icon={Activity}>
                 <input type="number" style={{ ...inputBaseStyle, height: '40px', width: '130px' }} value={fHorizon} onChange={e => setFHorizon(e.target.value)} />
               </InputGroup>
-              <button onClick={handleForecast} className="btn btn-primary" style={{ padding: '0 20px', height: '40px', marginTop: '18px', background: '#a855f7', color: '#fff', fontSize: '13px' }} disabled={fLoading}>
+              <button onClick={handleForecast} className="btn btn-primary" style={{ padding: '0 20px', height: '40px', marginTop: '18px', background: '#a855f7', color: '#fff', fontSize: '13px' }} disabled={fLoading || !globalProductId}>
                 {fLoading ? <RefreshCw size={16} className="spin" /> : 'Run Forecast'}
               </button>
             </div>
@@ -315,14 +324,14 @@ const ChartContainer = ({ loading, data, error, type, children }) => {
         </div>
       )}
 
-      {!data && !loading && !error && (
+      {(!data || data.length === 0) && !loading && !error && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', gap: '12px' }}>
           {type === 'predict' ? <Zap size={40} style={{ opacity: 0.1 }} /> : <TrendingUp size={40} style={{ opacity: 0.1 }} />}
-          <p style={{ fontSize: '14px', fontWeight: '500' }}>Select a product and configure parameters to see the vision.</p>
+          <p style={{ fontSize: '14px', fontWeight: '500' }}>{data?.length === 0 ? "No analysis data yet for this SKU." : "Select a product and configure parameters to see the vision."}</p>
         </div>
       )}
 
-      {data && children}
+      {data && data.length > 0 && children}
     </div>
   );
 };

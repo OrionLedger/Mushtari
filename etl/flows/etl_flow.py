@@ -40,10 +40,11 @@ from etl.transform.cleaner import clean
 from etl.transform.normalizer import normalize
 from etl.transform.caster import cast_types
 from etl.transform.validator import validate_data
+from etl.transform.order_exploder import explode_orders
 
 # ── Load tasks ───────────────────────────────────────────────────────
 from etl.load.file import load_to_parquet, load_to_csv
-from etl.load.database import load_to_database
+from etl.load.database import load_to_database, load_order_results
 from etl.load.mlflow_loader import log_to_mlflow
 
 logger = get_logger(__name__)
@@ -112,6 +113,12 @@ def etl_pipeline_flow(
     strict_gatekeeper: bool = False,
     check_schema_drift: bool = True,
     fail_on_validation_error: bool = True,
+    column_mapping: Optional[Dict[str, str]] = None,
+    # ── New Order Mode options ──────────────────────────────────
+    pipeline_mode: str = "orders",
+    source_id: Optional[int] = None,
+    items_source_type: str = "json_column",
+    watermark: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Execute the full Moshtari ETL pipeline.
@@ -140,11 +147,15 @@ def etl_pipeline_flow(
         strict_gatekeeper:       Halt flow strongly if business rules fail.
         check_schema_drift:      Compare schema to previous run.
         fail_on_validation_error: Raise on data validation failure.
+        column_mapping:          Optional map of {internal_field: external_column}.
 
     Returns:
         Summary dict with pipeline results.
     """
     source_config = source_config or {}
+    # Inject watermark if provided
+    if watermark:
+        source_config["start_date"] = watermark
     settings = get_settings()
     results: Dict[str, Any] = {
         "source_type": source_type,
@@ -160,6 +171,9 @@ def etl_pipeline_flow(
     # STEP 1: EXTRACT
     # ================================================================
     print("\n▶ Step 1/5: EXTRACT")
+
+    if column_mapping:
+        source_config["column_mapping"] = column_mapping
 
     df, extract_metadata = dispatch_extract(
         source_type=source_type,
@@ -199,9 +213,29 @@ def etl_pipeline_flow(
         return results
 
     # ================================================================
-    # STEP 2: IDENTIFY SCHEMA
+    # STEP 2: PIPELINE MODE DISPATCH (ORDERS vs LEGACY)
     # ================================================================
-    print("\n▶ Step 2/5: IDENTIFY SCHEMA")
+    df_backlog = None
+    df_customers = None
+
+    if pipeline_mode == "orders":
+        print("\n▶ Step 2/5: EXPLODE ORDERS")
+        # Validate order header first
+        df = apply_gatekeeper_rules(df, schema_name="orders", strict_halt=strict_gatekeeper)
+        
+        # Explode into items
+        df_backlog, df_sales, df_customers = explode_orders(
+            df=df,
+            column_mapping=column_mapping or {},
+            source_id=source_id or 0,
+            items_source_type=items_source_type
+        )
+        
+        # Validate exploded items
+        df = apply_gatekeeper_rules(df_sales, schema_name="order_items", strict_halt=strict_gatekeeper)
+        print(f"  ✓ Explosion complete. Items to process: {len(df)}")
+    else:
+        print("\n▶ Step 2/5: IDENTIFY SCHEMA (Legacy Mode)")
 
     schema = identify_schema(
         df=df,
@@ -335,16 +369,25 @@ def etl_pipeline_flow(
 
     # 4b. Database output (optional)
     if load_to_db:
-        print(f"  → Loading to target database '{db_type}' in table '{db_table_name}'...")
-        db_summary = load_to_database(
-            df=df, 
-            table_name=db_table_name,
-            db_type=db_type,
-            connection_uri=db_uri
-        )
+        if pipeline_mode == "orders" and db_type == "postgres":
+             print(f"  → Loading order results to PostgreSQL (Multi-table)...")
+             db_summary = load_order_results(
+                 df_backlog=df_backlog,
+                 df_sales=df,
+                 df_customers=df_customers,
+                 db_uri=db_uri
+             )
+        else:
+            print(f"  → Loading to target database '{db_type}' in table '{db_table_name}'...")
+            db_summary = load_to_database(
+                df=df, 
+                table_name=db_table_name,
+                db_type=db_type,
+                connection_uri=db_uri
+            )
         results["load"]["database"] = db_summary
         print(
-            f"  ✓ Database: {db_summary['inserted']}/{db_summary['total']} "
+            f"  ✓ Database: {db_summary.get('inserted', 0)}/{db_summary.get('total', 0)} "
             f"inserted"
         )
 

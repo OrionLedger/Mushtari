@@ -1,40 +1,44 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Search, Filter, Download, Eye, X, ChevronDown, 
-  ArrowUpDown, Calendar, Table as TableIcon, Columns
+  Search, Download, Eye, X, ChevronDown, 
+  ArrowUpDown, Calendar, Columns, RefreshCw, AlertCircle
 } from 'lucide-react';
-
-// ─── Mock Data ──────────────────────────────────────────────────────────────
-const MOCK_DATA = Array.from({ length: 25 }, (_, i) => ({
-  id: 1000 + i,
-  sku: `CER-${Math.floor(Math.random() * 900) + 100}`,
-  name: i % 2 === 0 ? 'Premium Ceramic Bowl' : 'Traditional Kiln Vase',
-  category: i % 3 === 0 ? 'Kitchenware' : 'Decor',
-  stock: Math.floor(Math.random() * 500) + 10,
-  price: parseFloat((Math.random() * 45 + 5).toFixed(2)),
-  date: `2024-04-${String((i % 28) + 1).padStart(2, '0')}`,
-  status: Math.random() > 0.3 ? 'In Stock' : 'Low Stock',
-  warehouse: i % 2 === 0 ? 'North Central' : 'East Logistics'
-}));
+import dataService from '../../services/dataService';
 
 const COLUMNS = [
   { key: 'id', label: 'ID' },
-  { key: 'sku', label: 'SKU' },
   { key: 'name', label: 'Product Name' },
   { key: 'category', label: 'Category' },
   { key: 'stock', label: 'Inventory' },
-  { key: 'price', label: 'Price ($)' },
-  { key: 'date', label: 'Last Updated' },
-  { key: 'status', label: 'Status' }
+  { key: 'velocity', label: 'Velocity' },
+  { key: 'risk', label: 'Risk Level' }
 ];
 
 // ─── Explorer Component ─────────────────────────────────────────────────────
-const Explorer = () => {
+const Explorer = ({ setTab, setGlobalProductId }) => {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'id', direction: 'asc' });
   const [visibleColumns, setVisibleColumns] = useState(COLUMNS.map(c => c.key));
   const [selectedRow, setSelectedRow] = useState(null);
   const [showColMenu, setShowColMenu] = useState(false);
+
+  const fetchInventory = async () => {
+    setLoading(true);
+    try {
+      const res = await dataService.getInventory(search);
+      setData(res || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInventory();
+  }, []);
 
   // Sorting Logic
   const handleSort = (key) => {
@@ -44,9 +48,9 @@ const Explorer = () => {
     }));
   };
 
-  // Filtering Logic
+  // Filtering Logic (Client side for now as primary search)
   const filteredData = useMemo(() => {
-    return MOCK_DATA.filter(item => 
+    return data.filter(item => 
       Object.values(item).some(val => 
         String(val).toLowerCase().includes(search.toLowerCase())
       )
@@ -55,7 +59,7 @@ const Explorer = () => {
       if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [search, sortConfig]);
+  }, [data, search, sortConfig]);
 
   const toggleColumn = (key) => {
     setVisibleColumns(prev => 
@@ -88,11 +92,11 @@ const Explorer = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '12px' }}>
-           <button onClick={handleExportCSV} className="btn btn-ghost" style={{ border: '1px solid var(--border-color)', display: 'flex', gap: '8px' }}>
+           <button onClick={handleExportCSV} className="btn btn-ghost" style={{ border: '1px solid var(--border-color)', display: 'flex', gap: '8px' }} disabled={data.length === 0}>
               <Download size={18} /> Export CSV
            </button>
-           <button className="btn btn-primary">
-              Refresh Data
+           <button onClick={fetchInventory} className="btn btn-primary" style={{ display: 'flex', gap: '8px' }} disabled={loading}>
+              <RefreshCw size={18} className={loading ? 'spin' : ''} /> Refresh Data
            </button>
         </div>
       </div>
@@ -141,48 +145,66 @@ const Explorer = () => {
       </div>
 
       {/* ── Table Area ── */}
-      <div className="surface" style={{ padding: '0', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: 'var(--surface-hover)', borderBottom: '1px solid var(--border-color)' }}>
-                {COLUMNS.filter(c => visibleColumns.includes(c.key)).map(col => (
-                  <th 
-                    key={col.key} 
-                    onClick={() => handleSort(col.key)}
-                    style={{ padding: '16px 20px', fontSize: '12px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                       {col.label} <ArrowUpDown size={12} />
-                    </div>
-                  </th>
-                ))}
-                <th style={{ padding: '16px 20px' }}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredData.map((row) => (
-                <tr key={row.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+      <div className="surface" style={{ padding: '0', overflow: 'hidden', minHeight: '300px', position: 'relative' }}>
+        {loading && (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.01)', backdropFilter: 'blur(6px)', zIndex: 10 }}>
+            <div style={{ textAlign: 'center' }}>
+              <RefreshCw size={32} color="var(--accent-color)" className="spin" style={{ marginBottom: '12px' }} />
+              <p className="outfit" style={{ fontSize: '14px', fontWeight: '600' }}>Synchronizing Inventory Records...</p>
+            </div>
+          </div>
+        )}
+
+        {!loading && filteredData.length === 0 && (
+          <div style={{ padding: '80px 0', textAlign: 'center', color: 'var(--text-secondary)' }}>
+             <AlertCircle size={40} style={{ margin: '0 auto 16px', opacity: 0.2 }} />
+             <p>No inventory records matched your query.</p>
+          </div>
+        )}
+
+        {filteredData.length > 0 && (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: 'var(--surface-hover)', borderBottom: '1px solid var(--border-color)' }}>
                   {COLUMNS.filter(c => visibleColumns.includes(c.key)).map(col => (
-                    <td key={col.key} style={{ padding: '16px 20px', fontSize: '14px' }}>
-                      {col.key === 'status' ? (
-                        <span style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: '600', background: row[col.key] === 'In Stock' ? '#10b98115' : '#ef444415', color: row[col.key] === 'In Stock' ? '#10b981' : '#ef4444' }}>
-                          {row[col.key]}
-                        </span>
-                      ) : row[col.key]}
-                    </td>
+                    <th 
+                      key={col.key} 
+                      onClick={() => handleSort(col.key)}
+                      style={{ padding: '16px 20px', fontSize: '11px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {col.label} <ArrowUpDown size={12} />
+                      </div>
+                    </th>
                   ))}
-                  <td style={{ padding: '16px 20px', textAlign: 'right' }}>
-                     <button onClick={() => setSelectedRow(row)} className="btn btn-ghost" style={{ padding: '6px' }}><Eye size={16} /></button>
-                  </td>
+                  <th style={{ padding: '16px 20px' }}></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filteredData.map((row) => (
+                  <tr key={row.id} style={{ borderBottom: '1px solid var(--border-color)', transition: 'background 0.2s' }} onMouseOver={e => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseOut={e => e.currentTarget.style.background = 'transparent'}>
+                    {COLUMNS.filter(c => visibleColumns.includes(c.key)).map(col => (
+                      <td key={col.key} style={{ padding: '16px 20px', fontSize: '13px' }}>
+                        {col.key === 'risk' ? (
+                          <span style={{ padding: '4px 8px', borderRadius: '6px', fontSize: '10px', fontWeight: '600', background: row[col.key] === 'Low' ? '#10b98115' : '#ef444415', color: row[col.key] === 'Low' ? '#10b981' : '#ef4444' }}>
+                            {row[col.key]}
+                          </span>
+                        ) : row[col.key]}
+                      </td>
+                    ))}
+                    <td style={{ padding: '16px 20px', textAlign: 'right' }}>
+                      <button onClick={() => setSelectedRow(row)} className="btn btn-ghost" style={{ padding: '6px' }}><Eye size={16} /></button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         
-        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '13px' }}>
-           Showing {filteredData.length} of {MOCK_DATA.length} results
+        <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '12px' }}>
+           Showing {filteredData.length} active records
         </div>
       </div>
 
@@ -194,26 +216,40 @@ const Explorer = () => {
                  <X size={24} />
               </button>
               
-              <h2 className="outfit" style={{ fontSize: '22px', marginBottom: '8px' }}>Record Details</h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '24px' }}>Viewing full metadata for SKU: {selectedRow.sku}</p>
+              <h2 className="outfit" style={{ fontSize: '22px', marginBottom: '8px' }}>SKU Audit Detail</h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginBottom: '24px' }}>Metadata consistency check for product ID: {selectedRow.id}</p>
               
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                  {Object.entries(selectedRow).map(([key, val]) => (
                    <div key={key}>
                       <label style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-secondary)', fontWeight: 'bold' }}>{key}</label>
-                      <div style={{ fontSize: '15px' }}>{val}</div>
+                      <div style={{ fontSize: '14px' }}>{val}</div>
                    </div>
                  ))}
               </div>
 
               <div style={{ marginTop: '32px', display: 'flex', gap: '12px' }}>
-                 <button onClick={() => setSelectedRow(null)} className="btn btn-primary" style={{ flex: 1 }}>Close Details</button>
-                 <button className="btn btn-ghost" style={{ border: '1px solid var(--border-color)', flex: 1 }}>Audit Log</button>
+                 <button onClick={() => setSelectedRow(null)} className="btn btn-primary" style={{ flex: 1 }}>Dismiss</button>
+                 <button 
+                  onClick={() => {
+                    setGlobalProductId(selectedRow.id.toString());
+                    setTab('vision');
+                    setSelectedRow(null);
+                  }}
+                  className="btn btn-ghost" 
+                  style={{ border: '1px solid var(--border-color)', flex: 1 }}
+                >
+                  Generate Forecast
+                </button>
               </div>
            </div>
         </div>
       )}
 
+      <style>{`
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 };

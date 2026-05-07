@@ -22,3 +22,22 @@ class ETLRequestPayload(BaseModel):
     # Hard Gates
     strict_gatekeeper: bool = Field(False, description="Strictly halt execution on Gatekeeper validation failures")
     check_schema_drift: bool = Field(False, description="Map past footprints dynamically seeking drifts")
+
+
+class SourceCreatePayload(BaseModel):
+    name: str = Field(..., description="Human-readable label for the source")
+    source_type: str = Field("Database", description="Database | Storage | Stream | File")
+    conn_uri: str = Field(..., description="Full connection URI")
+    table_name: Optional[str] = Field(None, description="Optional default table to use for this source")
+
+
+class MappingUpdatePayload(BaseModel):
+    table_name: str = Field(..., description="The physical table name in the source database")
+    mapping: Dict[str, str] = Field(..., description="Map of {internal_field: external_column}")
+    items_source_type: Literal["json_column", "separate_table"] = Field("json_column")
+    items_table_name: Optional[str] = None
+    sync_interval_hours: int = Field(6, ge=0)
+
+
+class TestConnectionPayload(BaseModel):
+    conn_uri: str = Field(..., description="URI to test")

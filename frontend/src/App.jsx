@@ -15,6 +15,7 @@ import './index.css';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [globalProductId, setGlobalProductId] = useState('');
 
   return (
     <ThemeProvider>
@@ -24,9 +25,9 @@ function App() {
           <TopNav activeTab={activeTab} />
           <div className="content-inner">
             {activeTab === 'dashboard' && <Dashboard />}
-            {activeTab === 'vision' && <Vision />}
+            {activeTab === 'vision' && <Vision globalProductId={globalProductId} setGlobalProductId={setGlobalProductId} />}
             {activeTab === 'analyst' && <Analyst />}
-            {activeTab === 'explorer' && <Explorer />}
+            {activeTab === 'explorer' && <Explorer setTab={setActiveTab} setGlobalProductId={setGlobalProductId} />}
             {activeTab === 'sources' && <Sources />}
             {activeTab === 'alerts' && <Alerts />}
             {activeTab === 'library' && <Library />}

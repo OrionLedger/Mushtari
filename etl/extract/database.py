@@ -24,13 +24,14 @@ class DatabaseExtractor:
     to extract data into a pandas DataFrame.
     """
 
-    def __init__(self, repo: Optional[BaseRepo] = None, db_type: str = "cassandra"):
+    def __init__(self, repo: Optional[BaseRepo] = None, db_type: str = "cassandra", uri: Optional[str] = None):
         """
         Initialize the extractor.
         
         Args:
             repo:    A pre-configured BaseRepo instance.
             db_type: If repo is None, this type determines which repository to create.
+            uri:     Optional URI for database connection.
         """
         if repo is not None:
             self._repo = repo
@@ -47,15 +48,12 @@ class DatabaseExtractor:
                 port=c_settings.port,
             )
             if c_settings.keyspace:
-                # Cassandra specific
                 self._repo.set_keyspace(c_settings.keyspace)
         elif db_type == "postgres":
-            # Assuming postgres settings are added to a similar structure in the future
-            # or just using environment variables/URI.
             import os
             self._repo = get_repository(
                 "postgres",
-                connection_uri=os.getenv("POSTGRES_URI")
+                connection_uri=uri or os.getenv("POSTGRES_URI")
             )
         else:
             raise ValueError(f"Unsupported database type for extraction: {db_type}")
@@ -77,26 +75,34 @@ class DatabaseExtractor:
         product_id: Optional[int] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
+        column_mapping: Optional[Dict[str, str]] = None,
     ) -> tuple[pd.DataFrame, Dict[str, Any]]:
         """
-        Extract records from the database table.
+        Extract records from the database table, applying column mapping if provided.
 
-        Returns:
-            (DataFrame, metadata_dict)
+        Args:
+            column_mapping: Dict of {internal_name: source_name}
         """
+        mapping = column_mapping or {}
+        
         logger.info(
             f"Extracting [{self._repo}] from table={table_name}, product_id={product_id}, "
-            f"range=[{start_date} → {end_date}]"
+            f"range=[{start_date} → {end_date}], mapped_fields={len(mapping)}"
         )
 
+        # 1. Prepare filters using source column names
         filters = {}
         if product_id:
-            filters["product_id"] = product_id
+            ext_name = mapping.get("product_id", "product_id")
+            filters[ext_name] = product_id
         if start_date:
-            filters["sell_date__gte"] = start_date
+            ext_name = mapping.get("order_date", mapping.get("sell_date", "order_date"))
+            filters[f"{ext_name}__gte"] = start_date
         if end_date:
-            filters["sell_date__lte"] = end_date
+            ext_name = mapping.get("order_date", mapping.get("sell_date", "order_date"))
+            filters[f"{ext_name}__lte"] = end_date
 
+        # 2. Extract
         rows = self._repo.get_record(
             table_name=table_name,
             filters=filters,
@@ -104,6 +110,8 @@ class DatabaseExtractor:
         )
 
         df = pd.DataFrame(rows)
+
+        # 3. Rename columns handled by exploder in orders mode
 
         metadata: Dict[str, Any] = {
             "source_type": "database",
@@ -115,6 +123,7 @@ class DatabaseExtractor:
                 "start_date": start_date,
                 "end_date": end_date,
             },
+            "mapping_applied": bool(mapping),
         }
 
         logger.info(f"Extracted {len(df)} records from {table_name}")
@@ -142,11 +151,13 @@ def extract_from_database(
     product_id: Optional[int] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    column_mapping: Optional[Dict[str, str]] = None,
     repo: Optional[BaseRepo] = None,
     db_type: str = "cassandra",
+    uri: Optional[str] = None,
 ) -> tuple[pd.DataFrame, Dict[str, Any]]:
     """Prefect task: extract data from the database."""
-    extractor = DatabaseExtractor(repo=repo, db_type=db_type)
+    extractor = DatabaseExtractor(repo=repo, db_type=db_type, uri=uri)
     try:
         if not extractor.validate_connection():
             extractor._repo.connect()
@@ -157,6 +168,7 @@ def extract_from_database(
             product_id=product_id,
             start_date=start_date,
             end_date=end_date,
+            column_mapping=column_mapping,
         )
     finally:
         extractor.close()
