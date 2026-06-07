@@ -52,6 +52,33 @@ const dataService = {
   },
 
   /**
+   * Fetch full details for a single product.
+   */
+  async getProductById(productId) {
+    try {
+      const response = await api.get(`/api/products/${productId}`);
+      return response.data;
+    } catch (error) {
+      handleError(error);
+    }
+  },
+
+  /**
+   * Fetch historical sales for a specific product.
+   */
+  async getProductSales(productId, scope = 'day', startDate = null, endDate = null) {
+    try {
+      const params = { scope };
+      if (startDate) params.start_date = startDate;
+      if (endDate) params.end_date = endDate;
+      const response = await api.get(`/api/products/${productId}/sales`, { params });
+      return response.data;
+    } catch (error) {
+      handleError(error);
+    }
+  },
+
+  /**
    * Predict demand for a specific product using XGBoost.
    */
   async predictDemand(payload) {

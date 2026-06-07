@@ -3,19 +3,12 @@ import { ThemeProvider } from './context/ThemeContext';
 import Sidebar from './components/layout/Sidebar';
 import TopNav from './components/layout/TopNav';
 import Dashboard from './components/features/Dashboard';
-import Vision from './components/features/Vision';
-import Analyst from './components/features/Analyst';
-import Explorer from './components/features/Explorer';
-import Sources from './components/features/Sources';
-import Alerts from './components/features/Alerts';
-import Library from './components/features/Library';
-import Reports from './components/features/Reports';
+import Product from './components/features/Product';
 
 import './index.css';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [globalProductId, setGlobalProductId] = useState('');
 
   return (
     <ThemeProvider>
@@ -25,13 +18,7 @@ function App() {
           <TopNav activeTab={activeTab} />
           <div className="content-inner">
             {activeTab === 'dashboard' && <Dashboard />}
-            {activeTab === 'vision' && <Vision globalProductId={globalProductId} setGlobalProductId={setGlobalProductId} />}
-            {activeTab === 'analyst' && <Analyst />}
-            {activeTab === 'explorer' && <Explorer setTab={setActiveTab} setGlobalProductId={setGlobalProductId} />}
-            {activeTab === 'sources' && <Sources />}
-            {activeTab === 'alerts' && <Alerts />}
-            {activeTab === 'library' && <Library />}
-            {activeTab === 'reports' && <Reports />}
+            {activeTab === 'product' && <Product />}
           </div>
         </main>
       </div>
