@@ -80,6 +80,7 @@ const dataService = {
 
   /**
    * Predict demand for a specific product using XGBoost.
+   * @param {object} payload - { product_id, horizon, scope, ... }
    */
   async predictDemand(payload) {
     try {
@@ -91,24 +92,15 @@ const dataService = {
   },
 
   /**
-   * Predict batch demand for multiple products.
+   * Get ARIMA-based forecast for a product, aggregated to the requested scope.
+   * @param {number} productId
+   * @param {number} horizon - number of periods at the requested scope
+   * @param {string} scope - day, week, month, year, 5years, beginning
    */
-  async predictBatch(payload) {
-    try {
-      const response = await api.post('/api/predict/batch', payload);
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Get ARIMA-based forecast for a product.
-   */
-  async getForecast(productId, horizon = 7) {
+  async getForecast(productId, horizon = 7, scope = 'day') {
     try {
       const response = await api.get(`/api/forecast`, {
-        params: { product_id: productId, horizon }
+        params: { product_id: productId, horizon, scope }
       });
       return response.data;
     } catch (error) {
@@ -117,35 +109,13 @@ const dataService = {
   },
 
   /**
-   * Retrain an XGBoost model for a product.
+   * Generate import/ordering insights for a product using LLM.
    */
-  async trainModel(payload) {
+  async getInsight(productId, scope = 'week', horizon = 4) {
     try {
-      const response = await api.patch('/api/train/xgboost', payload);
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Fetch Market Fit KPIs.
-   */
-  async getMarketFitKPIs(payload) {
-    try {
-      const response = await api.post('/api/kpi/market-fit', payload);
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Trigger the ETL pipeline extraction.
-   */
-  async triggerETL(payload) {
-    try {
-      const response = await api.post(`/api/data/extract`, payload);
+      const response = await api.get(`/api/products/${productId}/insight`, {
+        params: { scope, horizon }
+      });
       return response.data;
     } catch (error) {
       handleError(error);
@@ -181,174 +151,12 @@ const dataService = {
   },
 
   /**
-   * Fetch revenue breakdown by category (product, country, channel).
-   */
-  async getBreakdown(category = 'product') {
-    try {
-      const response = await api.get('/api/analytics/breakdown', {
-        params: { category }
-      });
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Fetch user statistics by category (device, source).
-   */
-  async getUserStats(category = 'device') {
-    try {
-      const response = await api.get('/api/analytics/users', {
-        params: { category }
-      });
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  // ── Data Sources Registry ──────────────────────────────────────────────────
-
-  /**
-   * List all saved data source connections.
-   */
-  async getSources() {
-    try {
-      const response = await api.get('/api/sources');
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Persist a new data source connection.
-   * @param {{ name, source_type, conn_uri }} payload
-   */
-  async addSource(payload) {
-    try {
-      const response = await api.post('/api/sources', payload);
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Delete a data source by ID.
-   */
-  async deleteSource(id) {
-    try {
-      const response = await api.delete(`/api/sources/${id}`);
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Test a connection URI without saving it.
-   * Returns { ok: bool, message: string }
-   */
-  async testConnection(conn_uri) {
-    try {
-      const response = await api.post('/api/sources/test', { conn_uri });
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Trigger an ETL sync job for a registered source.
-   */
-  async syncSource(id) {
-    try {
-      const response = await api.post(`/api/sources/${id}/sync`);
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Trigger parallel sync for all sources.
-   */
-  async syncAllSources() {
-    try {
-      const response = await api.post(`/api/sources/sync-all`);
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Fetch all tables available in a specific source.
-   */
-  async getSourceTables(id) {
-    try {
-      const response = await api.get(`/api/sources/${id}/tables`);
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Fetch columns for a specific table in a source.
-   */
-  async getSourceSchema(id, tableName) {
-    try {
-      const response = await api.get(`/api/sources/${id}/schema`, {
-        params: { table_name: tableName }
-      });
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Update the table mapping for a source.
-   */
-  async updateSourceMapping(id, tableName, mapping, itemsSourceType = 'json_column', itemsTableName = null, interval = 6) {
-    try {
-      const response = await api.put(`/api/sources/${id}/mapping`, {
-        table_name: tableName,
-        mapping: mapping,
-        items_source_type: itemsSourceType,
-        items_table_name: itemsTableName,
-        sync_interval_hours: interval
-      });
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Fetch inventory / SKU overview.
-   */
-  async getInventory(query = '') {
-    try {
-      const response = await api.get('/api/analytics/inventory', {
-        params: { query }
-      });
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
    * Fetch active system alerts.
    */
-  async getSystemAlerts(severity = 'all') {
+  async getSystemAlerts(severity = 'all', includeResolved = false) {
     try {
       const response = await api.get('/api/analytics/alerts', {
-        params: { severity }
+        params: { severity, include_resolved: includeResolved }
       });
       return response.data;
     } catch (error) {
@@ -356,18 +164,6 @@ const dataService = {
     }
   },
 
-  /**
-   * Fetch generated reports.
-   */
-  async getReports() {
-    try {
-      const response = await api.get('/api/analytics/reports');
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-  
   /**
    * Resolve a system alert.
    */
@@ -385,35 +181,11 @@ const dataService = {
   },
 
   /**
-   * Trigger on-demand report generation.
+   * Mark all unresolved alerts as resolved (archived).
    */
-  async generateReport(payload) {
+  async markAllAlertsRead() {
     try {
-      const response = await api.post('/api/analytics/reports', payload);
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Delete a report by ID.
-   */
-  async deleteReport(id) {
-    try {
-      const response = await api.delete(`/api/analytics/reports/${id}`);
-      return response.data;
-    } catch (error) {
-      handleError(error);
-    }
-  },
-
-  /**
-   * Fetch educational library content.
-   */
-  async getLibraryData() {
-    try {
-      const response = await api.get('/api/analytics/library');
+      const response = await api.post('/api/analytics/alerts/mark-all-read');
       return response.data;
     } catch (error) {
       handleError(error);
@@ -430,6 +202,79 @@ const dataService = {
     } catch (error) {
       handleError(error);
     }
+  },
+
+  // ── Data Import ───────────────────────────────────────────────────────
+
+  /**
+   * Upload an Excel file to import products.
+   * @param {File} file - The .xlsx file
+   * @param {function} onProgress - Optional callback for upload progress
+   */
+  async importProducts(file, onProgress) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post('/api/import/products', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000, // 2 min for large imports
+        onUploadProgress: onProgress,
+      });
+      return response.data;
+    } catch (error) {
+      handleError(error);
+    }
+  },
+
+  /**
+   * Upload an Excel file to import orders and sales.
+   * @param {File} file - The .xlsx file
+   * @param {function} onProgress - Optional callback for upload progress
+   */
+  async importOrders(file, onProgress) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post('/api/import/orders', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000,
+        onUploadProgress: onProgress,
+      });
+      return response.data;
+    } catch (error) {
+      handleError(error);
+    }
+  },
+
+  /**
+   * Download a products import template.
+   */
+  async getProductsTemplate() {
+    try {
+      const response = await api.get('/api/import/template/products');
+      return response.data;
+    } catch (error) {
+      handleError(error);
+    }
+  },
+
+  /**
+   * Download an orders import template.
+   */
+  async getOrdersTemplate() {
+    try {
+      const response = await api.get('/api/import/template/orders');
+      return response.data;
+    } catch (error) {
+      handleError(error);
+    }
+  },
+
+  /**
+   * Get the download URL for a template file.
+   */
+  getTemplateDownloadUrl(type) {
+    return `${API_BASE_URL}/api/import/template/${type}/file`;
   },
 
 };

@@ -6,20 +6,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from api.router.demand import router as demand_router
-from api.router.data import router as data_router
 from api.router.kpi import router as kpi_router
 from api.router.analytics import router as analytics_router
 from api.router.sources import router as sources_router
+from api.router.imports import router as imports_router
 
 from serving.services.sync_scheduler import SyncScheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # PRE-CONNECT: Ensure primary DBs are available at startup
+    # PRE-CONNECT: Ensure primary DB is available at startup
     try:
         get_repository("postgres", shared=True)
-        get_repository("cassandra", shared=True)
-        
+
         # Start background sync scheduler
         SyncScheduler.get_instance().start()
         
@@ -56,10 +55,10 @@ def health_check():
     return {"status": "ok", "timestamp": "now"}
 
 app.include_router(demand_router)
-app.include_router(data_router)
 app.include_router(kpi_router)
 app.include_router(analytics_router)
 app.include_router(sources_router)
+app.include_router(imports_router)
 
 # Instrument the app with Prometheus
 Instrumentator().instrument(app).expose(app)
