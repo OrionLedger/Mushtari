@@ -161,6 +161,13 @@ const Product = () => {
       .finally(() => setLoadingSales(false));
   }, [selectedId, scope]);
 
+  // Auto-trigger insight when product is selected
+  useEffect(() => {
+    if (selectedId) {
+      handleInsight();
+    }
+  }, [selectedId, scope]);
+
   const totalSales = useMemo(() => {
     if (!salesData.length) return '---';
     return salesData.reduce((s, d) => s + d.sales, 0).toLocaleString();
