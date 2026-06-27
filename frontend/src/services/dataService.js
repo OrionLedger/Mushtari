@@ -151,6 +151,34 @@ const dataService = {
   },
 
   /**
+   * Fetch revenue breakdown by category.
+   */
+  async getBreakdown(category = 'product') {
+    try {
+      const response = await api.get('/api/analytics/breakdown', {
+        params: { category }
+      });
+      return response.data;
+    } catch (error) {
+      handleError(error);
+    }
+  },
+
+  /**
+   * Fetch user acquisition statistics.
+   */
+  async getUserStats(category = 'device') {
+    try {
+      const response = await api.get('/api/analytics/users', {
+        params: { category }
+      });
+      return response.data;
+    } catch (error) {
+      handleError(error);
+    }
+  },
+
+  /**
    * Fetch active system alerts.
    */
   async getSystemAlerts(severity = 'all', includeResolved = false) {
