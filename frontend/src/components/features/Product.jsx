@@ -154,6 +154,7 @@ const Product = () => {
         setSalesData(sales.map(s => ({
           name: formatDate(s.date, scope, t),
           sales: Math.round(s.quantity),
+          revenue: s.revenue,
         })));
       })
       .catch(err => { console.error(err); setSalesData([]); })
@@ -166,10 +167,10 @@ const Product = () => {
   }, [salesData]);
 
   const totalRevenue = useMemo(() => {
-    if (!product || !product.base_price) return '---';
-    const count = salesData.reduce((s, d) => s + d.sales, 0);
-    return `$${(count * product.base_price).toLocaleString()}`;
-  }, [product, salesData]);
+    if (salesData.length === 0) return '---';
+    const total = salesData.reduce((s, d) => s + (d.revenue || 0), 0);
+    return `$${Math.round(total).toLocaleString()}`;
+  }, [salesData]);
 
   const chartData = useMemo(() => {
     if (!forecastData || forecastData.length === 0) return salesData;

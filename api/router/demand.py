@@ -101,6 +101,8 @@ async def get_product_sales_api(
         df = pd.DataFrame(rows)
         df["ds"] = pd.to_datetime(df["ds"]).dt.tz_localize(None)
         df["quantity"] = df["quantity"].apply(float)
+        df["price_at_sale"] = df["price_at_sale"].apply(float)
+        df["revenue"] = df["quantity"] * df["price_at_sale"]
 
         if start_date:
             df = df[df["ds"] >= pd.to_datetime(start_date)]
@@ -113,12 +115,13 @@ async def get_product_sales_api(
         freq_map = {"day": "D", "week": "W", "month": "ME", "year": "QE", "5years": "YE", "beginning": "W"}
         freq = freq_map.get(scope, "ME")
 
-        resampled = df.resample(freq, on="ds")["quantity"].sum().reset_index()
+        resampled = df.resample(freq, on="ds")[["quantity", "revenue"]].sum().reset_index()
         sales = []
         for _, r in resampled.iterrows():
             sales.append({
                 "date": r["ds"].strftime("%Y-%m-%d"),
                 "quantity": int(r["quantity"]),
+                "revenue": round(float(r["revenue"]), 2),
             })
         return {"sales": sales}
     except Exception as e:
