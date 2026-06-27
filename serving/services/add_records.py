@@ -1,4 +1,4 @@
-from repo import get_repository
+from repo.current import get_active_repository
 
 def add_sales_record(
         record: dict,
@@ -9,7 +9,7 @@ def add_sales_record(
     Adds a sales record to the database using the configured repository.
     """
     if repo is None:
-        repo = get_repository("postgres", shared=True)
+        repo = get_active_repository()
 
     return repo.add_record(
         table_name=table_name,

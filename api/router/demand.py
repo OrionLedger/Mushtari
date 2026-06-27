@@ -1,7 +1,8 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 import time
 import asyncio
+from typing import Optional
 
 from serving.services.predict_product_demand import predict_product_demand
 from serving.services.forecast_product import forecast_product
@@ -40,33 +41,88 @@ async def list_products_api():
     List unique product IDs from the sales table.
     """
     try:
-        from repo import get_repository
-        from etl.config.settings import get_settings
-        settings = get_settings().extract.cassandra
-        repo = get_repository(
-            "cassandra",
-            username=settings.username,
-            password=settings.password,
-            contact_points=settings.contact_points,
-            port=settings.port,
-            keyspace=settings.keyspace
-        )
-        
-        # In a real app we'd query a Products table, here we'll scan unique product_id from sales
-        # Warning: Direct scan of partition keys in Cassandra can be slow on large tables
-        # But for this MVP/dashboard, we'll use it.
-        # Ideally, we'd have a 'products' table.
+        from repo.current import get_active_repository
+        repo = get_active_repository()
         rows = await run_in_threadpool(
             repo.get_record,
-            table_name=settings.default_table,
-            columns=["product_id"]
+            table_name="products",
+            columns=["id", "name"]
         )
-        
-        # Deduplicate
-        pids = sorted(list(set(row["product_id"] for row in rows)))
-        return [{"id": str(pid), "name": f"Product {pid}"} for pid in pids]
+        return [{"id": str(row["id"]), "name": row["name"]} for row in rows]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed fetching products: {str(e)}")
+
+
+@router.get("/products/{product_id}")
+async def get_product_api(product_id: int):
+    """
+    Get product details from the database.
+    """
+    try:
+        from repo.current import get_active_repository
+        repo = get_active_repository()
+        rows = await run_in_threadpool(
+            repo.get_record,
+            table_name="products",
+            filters={"id": product_id},
+        )
+        if not rows:
+            raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
+        return rows[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/products/{product_id}/sales")
+async def get_product_sales_api(
+    product_id: int,
+    scope: str = "month",
+    start_date: Optional[str] = Query(None, description="Inclusive start date (YYYY-MM-DD)"),
+    end_date: Optional[str] = Query(None, description="Inclusive end date (YYYY-MM-DD)"),
+):
+    """
+    Get sales history for a product, aggregated by the given scope.
+    """
+    try:
+        from repo.current import get_active_repository
+        repo = get_active_repository()
+        rows = await run_in_threadpool(
+            repo.get_record,
+            table_name="sales",
+            filters={"product_id": product_id},
+            columns=["ds", "quantity", "price_at_sale"],
+        )
+        if not rows:
+            return {"sales": []}
+
+        import pandas as pd
+        df = pd.DataFrame(rows)
+        df["ds"] = pd.to_datetime(df["ds"]).dt.tz_localize(None)
+        df["quantity"] = df["quantity"].apply(float)
+
+        if start_date:
+            df = df[df["ds"] >= pd.to_datetime(start_date)]
+        if end_date:
+            df = df[df["ds"] <= pd.to_datetime(end_date)]
+
+        if df.empty:
+            return {"sales": []}
+
+        freq_map = {"day": "D", "week": "W", "month": "ME", "year": "QE", "5years": "YE", "beginning": "W"}
+        freq = freq_map.get(scope, "ME")
+
+        resampled = df.resample(freq, on="ds")["quantity"].sum().reset_index()
+        sales = []
+        for _, r in resampled.iterrows():
+            sales.append({
+                "date": r["ds"].strftime("%Y-%m-%d"),
+                "quantity": int(r["quantity"]),
+            })
+        return {"sales": sales}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 VALID_SCOPES = {"day", "week", "month", "year", "5years", "beginning"}

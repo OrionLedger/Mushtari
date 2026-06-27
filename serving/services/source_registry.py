@@ -8,8 +8,7 @@ Persists connection metadata in Postgres and validates live connectivity.
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 from infrastructure.logging.logger import get_logger
-from repo import get_repository
-from etl.config.settings import get_settings
+from repo.current import get_active_repository
 
 logger = get_logger("SourceRegistry")
 
@@ -19,21 +18,10 @@ class SourceRegistry:
 
     @staticmethod
     def _get_repo(conn_uri: Optional[str] = None):
-        """Returns a repository based on the connection URI or defaults to internal Postgres."""
+        """Returns the active repository (external connection or default internal)."""
         if not conn_uri:
-            return get_repository("postgres")
-            
-        uri_lower = conn_uri.lower().strip()
-        if uri_lower.startswith(("postgresql://", "postgres://")):
-            return get_repository("postgres", connection_uri=conn_uri)
-        elif "cassandra" in uri_lower:
-            # Simple heuristic for cassandra hosts
-            host = conn_uri.replace("cassandra://", "").split("/")[0].split(":")[0]
-            if not host: host = "localhost"
-            return get_repository("cassandra", contact_points=[host])
-            
-        # If a URI was provided but no protocol matched, raise an error instead of defaulting
-        raise ValueError(f"Unsupported or malformed database URI: {conn_uri}")
+            return get_active_repository()
+        return get_active_repository()
 
     # ── List ──────────────────────────────────────────────────────────────────
     @classmethod

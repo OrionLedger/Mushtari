@@ -1,5 +1,5 @@
 from typing import List, Dict, Any, Optional
-from repo import get_repository
+from repo.current import get_active_repository
 import pandas as pd
 from infrastructure.logging.logger import get_logger
 
@@ -16,8 +16,8 @@ class MetricCalc:
 
     @staticmethod
     def _get_repo():
-        """Return the configured repository (routes to SQLite in local mode)."""
-        return get_repository("postgres", shared=True)
+        """Return the configured repository from the single injection point."""
+        return get_active_repository()
 
     @classmethod
     def get_business_kpis(cls) -> Dict[str, Any]:

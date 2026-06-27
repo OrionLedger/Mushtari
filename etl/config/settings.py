@@ -6,6 +6,9 @@ requiring the entire ETL pipeline package.
 import os
 from dataclasses import dataclass, field
 from typing import List, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 
 @dataclass
@@ -27,8 +30,8 @@ class PostgresSettings:
     host: str = os.getenv("POSTGRES_HOST", "localhost")
     port: int = int(os.getenv("POSTGRES_PORT", "5432"))
     user: str = os.getenv("POSTGRES_USER", "postgres")
-    password: str = os.getenv("POSTGRES_PASSWORD", "postgres")
-    dbname: str = os.getenv("POSTGRES_DB", "moshtari")
+    password: str = os.getenv("POSTGRES_PASSWORD", "root")
+    dbname: str = os.getenv("POSTGRES_DB", "mushtari_test")
     uri: Optional[str] = os.getenv("DATABASE_URL", None)
 
 
