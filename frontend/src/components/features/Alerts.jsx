@@ -17,7 +17,7 @@ const Alerts = () => {
     const fetchAlerts = async () => {
       setLoading(true);
       try {
-        const data = await dataService.getSystemAlerts(filterType);
+        const data = await dataService.getSystemAlerts(filterType, true);
         setAlerts(data || []);
       } catch (err) {
         console.error("Failed to load alerts:", err);
@@ -172,7 +172,7 @@ const Alerts = () => {
                 try {
                   await dataService.resolveAlert(selectedAlert.id, selectedAlert.severity, selectedAlert.ts);
                   setSelectedAlert(null);
-                  const data = await dataService.getSystemAlerts(filterType);
+                  const data = await dataService.getSystemAlerts(filterType, true);
                   setAlerts(data || []);
                 } catch (err) {
                   alert("Failed to resolve alert: " + err.message);
