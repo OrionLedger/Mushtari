@@ -202,13 +202,15 @@ async def predict_batch_api(payload: PredictBatchPayload):
 
 
 @router.get("/forecast")
-async def forecast_api(product_id: int, horizon: int = 7):
+async def forecast_api(product_id: int, horizon: int = 7, scope: str = "day"):
     """
     example:
-    /api/forecast?product_id=1&horizon=7
+    /api/forecast?product_id=1&horizon=7&scope=month
     """
+    if scope not in {"day", "week", "month", "year"}:
+        raise HTTPException(status_code=400, detail=f"Invalid scope '{scope}'. Use: day, week, month, year")
     try:
-        cache_key = f"{product_id}_{horizon}"
+        cache_key = f"{product_id}_{horizon}_{scope}"
         current_time = time.time()
         
         # Evaluate Cache Hit
@@ -221,7 +223,8 @@ async def forecast_api(product_id: int, horizon: int = 7):
         forecast_result = await run_in_threadpool(
             forecast_product,
             product_id=product_id,
-            horizon=horizon
+            horizon=horizon,
+            scope=scope
         )
         
         _forecast_cache[cache_key] = (forecast_result, current_time)

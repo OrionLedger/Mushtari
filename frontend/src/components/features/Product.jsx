@@ -88,7 +88,7 @@ const Product = () => {
     setForecastLoading(true);
     setForecastError(null);
     try {
-      const res = await dataService.getForecast(parseInt(selectedId), horizon);
+      const res = await dataService.getForecast(parseInt(selectedId), horizon, scope);
       if (res && res.forecast && res.forecast.length > 0) {
         setForecastData(res.forecast);
       } else if (res && res.status === 'no_data') {
