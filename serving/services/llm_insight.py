@@ -42,7 +42,9 @@ RULES:
 10. Margin = (base_price - unit_cost) / base_price. Higher margin means more room for bulk ordering.
 11. Recommend specific order quantities (round numbers) and specific timelines (in days).
 12. Be conservative — it is better to recommend a slightly larger order than to risk a stockout.
-13. Return ONLY valid JSON matching the specified schema exactly.
+13. The ENTIRE response must be in **Arabic** (العربية). The `reorder_recommendation`, `key_factors`, and `risk_factors` fields must all be written in clear, simple Arabic that any merchant can understand instantly.
+14. Use natural merchant-friendly Arabic — short phrases like "المبيعات مرتفعة هذا الشهر", "المخزون الحالي قليل جداً", "اطلب 80 قطعة خلال 5 أيام" — not technical or academic language.
+15. Return ONLY valid JSON matching the specified schema exactly.
 
 Your recommendations directly impact business operations. Accuracy and clarity matter."""
 
@@ -136,7 +138,7 @@ def build_insight_prompt(
     lines.append("")
     lines.append("RESPOND WITH JSON IN THIS EXACT FORMAT:")
     lines.append("{")
-    lines.append('  "reorder_recommendation": "Short actionable sentence (e.g. Place order for 80 units within 5 days)",')
+    lines.append('  "reorder_recommendation": "Short actionable sentence IN ARABIC (e.g. اطلب 80 قطعة خلال 5 أيام)",')
     lines.append('  "order_quantity": <integer>,')
     lines.append('  "reorder_in_days": <integer>,')
     lines.append('  "stock_out_in_days": <integer | null>,')
@@ -149,8 +151,8 @@ def build_insight_prompt(
     lines.append("- `order_quantity`: how many units to order NOW")
     lines.append("- `reorder_in_days`: how many days until the order must be placed (0 = today)")
     lines.append("- `stock_out_in_days`: expected days until stock hits zero if no reorder (null = no risk)")
-    lines.append("- `key_factors`: top 2-4 data points driving the recommendation")
-    lines.append("- `risk_factors`: top 1-3 things that could make the recommendation wrong")
+    lines.append("- `key_factors`: top 2-4 factors in ARABIC, clear for a merchant (e.g. المبيعات مرتفعة, المخزون قليل)")
+    lines.append("- `risk_factors`: top 1-3 risks in ARABIC, clear for a merchant (e.g. تأخير في التوريد, زيادة غير متوقعة في الطلب)")
 
     user_content = "\n".join(lines)
 

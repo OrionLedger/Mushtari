@@ -15,7 +15,6 @@ from infrastructure.llm.prompts import build_forecast_prompt
 from infrastructure.logging.logger import get_logger
 from serving.services.forecast_product import (
     forecast_product as arima_forecast_product,
-    SCOPE_TO_DAYS,
 )
 
 logger = get_logger(__name__)
