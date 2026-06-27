@@ -22,18 +22,10 @@ def start_arima_forecaster(y, n_periods, seasonal=False):
         max_d=3,
         seasonal=seasonal,
         stepwise=True,
-        trace=True,
+        trace=False,
         suppress_warnings=True
     )
-    sm_model = model.to_statsmodels()
-    y_pred = sm_model.predict(n_periods=12, return_conf_int=True)
-    print ("Model Residuals: ", sm_model.resid())
-    print(sm_model.summary())
 
-    # Forecast with pmdarima (correct way)
     y_pred, conf_int = model.predict(n_periods=n_periods, return_conf_int=True)
-
-    print("Model Residuals:", model.resid())
-    print(model.summary())
 
     return model, y_pred, conf_int

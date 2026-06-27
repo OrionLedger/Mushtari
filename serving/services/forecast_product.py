@@ -8,18 +8,18 @@ def forecast_product(product_id: int, horizon: int, repo = None):
     
     data = get_product_sales(
         product_id=product_id,
-        columns=["sales"],
+        columns=["quantity"],
         repo=repo
     )
 
     if not data:
         return {"product_id": product_id, "forecast": [], "status": "no_data"}
 
-    y = [float(r["sales"]) for r in data]
+    y = [float(r["quantity"]) for r in data]
 
     model, y_pred, conf_int = start_arima_forecaster(
         y=y,
-        steps=horizon
+        n_periods=horizon
     )
 
     result_list = y_pred.tolist()

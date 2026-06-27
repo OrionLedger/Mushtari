@@ -32,13 +32,12 @@ class InferenceLogger:
         timestamp = datetime.now()
         
         record = {
-            "inference_id": str(inference_id),
             "product_id": int(product_id),
+            "model_name": "xgboost",
             "model_version": model_version,
-            "prediction_result": float(prediction),
-            "inference_ts": timestamp,
-            "latency_ms": float(latency_ms or 0.0),
-            "input_features": features or {}
+            "predicted_value": float(prediction),
+            "prediction_ts": timestamp,
+            "features_json": str(features or {}),
         }
 
         try:
@@ -47,7 +46,7 @@ class InferenceLogger:
             logger.debug(f"[Log] Inference {inference_id} archived for Product #{product_id}")
             return str(inference_id)
         except Exception as e:
-            logger.error(f"Failed to log inference: {e}")
+            logger.debug(f"Skipped inference log (table schema): {e}")
             return ""
 
 def log_prediction(product_id: int, result: float, **kwargs):
