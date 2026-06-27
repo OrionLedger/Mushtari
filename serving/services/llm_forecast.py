@@ -209,7 +209,8 @@ def llm_forecast_product(
         feat = {"period": i, "date": future_date.isoformat()[:10]}
         for col, extractor, is_known in SCOPE_FEATURES.get(scope, SCOPE_FEATURES["day"]):
             if extractor is not None and is_known:
-                feat[col] = int(extractor(future_date))
+                # Extractor expects a row-like dict with "ds" key
+                feat[col] = int(extractor({"ds": future_date}))
             elif col == "prev_period_sales":
                 feat[col] = round(last_quantity, 1) if i == 1 else None
             elif col == "rollback_N":
