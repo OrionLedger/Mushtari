@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Wifi, WifiOff, DollarSign, Percent, RefreshCw, AlertCircle } from 'lucide-react';
+import { Wifi, WifiOff, DollarSign, Percent, PieChart, RefreshCw, AlertCircle } from 'lucide-react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, BarChart, Bar,
@@ -182,6 +182,7 @@ const Dashboard = () => {
          {[
            { label: 'Net Revenue', value: kpis?.revenue || '---', icon: <DollarSign size={20} />, color: '#10b981', change: kpis?.revenue_change },
            { label: 'Growth Output', value: kpis?.growth || '---', icon: <Percent size={20} />, color: '#3b82f6', change: kpis?.growth_change },
+           { label: 'Profit Yield', value: kpis?.margin || '---', icon: <PieChart size={20} />, color: '#a855f7' },
          ].map((stat, i) => (
           <div key={i} className="surface" style={{ position: 'relative' }}>
             {!kpis && <div style={{ position: 'absolute', inset: 0, background: 'var(--surface-color)', opacity: 0.5, borderRadius: '16px' }} />}
@@ -190,10 +191,12 @@ const Dashboard = () => {
               <div style={{ color: stat.color }}>{stat.icon}</div>
             </div>
             <div className="outfit" style={{ fontSize: '30px', fontWeight: '700', marginTop: '12px' }}>{stat.value}</div>
-            <div style={{ color: '#10b981', fontSize: '11px', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>↑ {stat.change}</span>
-              <span style={{ color: 'var(--text-secondary)' }}>vs prev.</span>
-            </div>
+            {stat.change && (
+              <div style={{ color: '#10b981', fontSize: '11px', marginTop: '8px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>↑ {stat.change}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>vs prev.</span>
+              </div>
+            )}
           </div>
         ))}
       </div>
