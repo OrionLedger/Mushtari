@@ -18,17 +18,12 @@ async def lifespan(app: FastAPI):
     # PRE-CONNECT: Ensure primary DB is available at startup
     try:
         get_repository("postgres", shared=True)
-
-        # Start background sync scheduler
-        SyncScheduler.get_instance().start()
-        
     except Exception as e:
         print(f"Warning: Initial DB connection failed during startup: {e}")
         
     yield
     
     # SHUTDOWN: Cleanly close all shared connections
-    SyncScheduler.get_instance().stop()
     DatabaseRegistry.dispose()
 
 app = FastAPI(

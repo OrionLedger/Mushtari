@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { DollarSign, Package, ShoppingCart, TrendingUp, Hash, Search, AlertCircle, RefreshCw } from 'lucide-react';
+import { DollarSign, Lightbulb, Package, ShoppingCart, TrendingUp, Hash, Search, AlertCircle, RefreshCw } from 'lucide-react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area,
@@ -58,7 +58,29 @@ const Product = () => {
   const [forecastData, setForecastData] = useState(null);
   const [forecastLoading, setForecastLoading] = useState(false);
 
+  const [insight, setInsight] = useState(null);
+  const [insightLoading, setInsightLoading] = useState(false);
+
   const [pageLoading, setPageLoading] = useState(true);
+
+  const handleInsight = async () => {
+    if (!selectedId) return;
+    setInsightLoading(true);
+    setInsight(null);
+    try {
+      const res = await dataService.getInsight(parseInt(selectedId), scope, 4);
+      if (res && res.status === 'success') {
+        setInsight(res);
+      } else {
+        setInsight({ status: 'error', message: res?.message || 'Failed to generate insights' });
+      }
+    } catch (err) {
+      console.error('Insight failed:', err);
+      setInsight({ status: 'error', message: err.message });
+    } finally {
+      setInsightLoading(false);
+    }
+  };
 
   const handleForecast = async () => {
     if (!selectedId) return;
@@ -318,6 +340,128 @@ const Product = () => {
                     )}
                   </AreaChart>
                 </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Insights Section ── */}
+        {selectedId && !loadingProduct && (
+          <div style={{ marginTop: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h4 className="outfit" style={{ fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Lightbulb size={18} color="var(--accent-color)" /> {t('insight.title')}
+              </h4>
+              <button
+                onClick={handleInsight}
+                disabled={insightLoading || !selectedId}
+                className="btn btn-primary"
+                style={{
+                  padding: '5px 14px', fontSize: '11px', fontWeight: '600',
+                  display: 'flex', gap: '6px', alignItems: 'center',
+                  borderRadius: '8px', height: '32px',
+                }}
+              >
+                {insightLoading ? <RefreshCw size={14} className="spin" /> : <Lightbulb size={14} />}
+                {insight ? t('insight.regenerate') : t('insight.generate')}
+              </button>
+            </div>
+
+            {/* Loading state */}
+            {insightLoading && (
+              <div className="surface" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <RefreshCw size={20} color="var(--accent-color)" className="spin" style={{ marginBottom: '8px' }} />
+                <div style={{ fontSize: '13px' }}>{t('insight.generating')}</div>
+              </div>
+            )}
+
+            {/* LLM unavailable → rule-based fallback badge */}
+            {insight && insight.method === 'fallback_rule' && !insightLoading && (
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', fontStyle: 'italic' }}>
+                {t('insight.fallback')}
+              </div>
+            )}
+
+            {/* Insight card */}
+            {insight && insight.status === 'success' && !insightLoading && (
+              <div className="surface" style={{ padding: '20px' }}>
+                {/* Recommendation */}
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '500', marginBottom: '4px' }}>{t('insight.recommendation')}</div>
+                  <div style={{ fontSize: '16px', fontWeight: '600', color: insight.reorder_in_days <= 3 ? '#ef4444' : 'var(--text-primary)', lineHeight: '1.5' }}>
+                    {insight.reorder_recommendation}
+                  </div>
+                </div>
+
+                {/* Metrics row */}
+                <div className="card-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', marginBottom: '16px' }}>
+                  <div className="surface" style={{ padding: '12px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '500' }}>{t('insight.order_qty')}</div>
+                    <div style={{ fontSize: '20px', fontWeight: '700', marginTop: '4px' }}>{insight.order_quantity > 0 ? `${insight.order_quantity} ${t('insight.units')}` : '—'}</div>
+                  </div>
+                  <div className="surface" style={{ padding: '12px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '500' }}>{t('insight.reorder_in')}</div>
+                    <div style={{ fontSize: '20px', fontWeight: '700', marginTop: '4px', color: insight.reorder_in_days <= 3 ? '#ef4444' : insight.reorder_in_days <= 7 ? '#f59e0b' : 'var(--text-primary)' }}>
+                      {insight.reorder_in_days > 0 ? `${insight.reorder_in_days} ${t('insight.days')}` : 'Today'}
+                    </div>
+                  </div>
+                  <div className="surface" style={{ padding: '12px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '500' }}>{t('insight.stock_out')}</div>
+                    <div style={{ fontSize: '20px', fontWeight: '700', marginTop: '4px', color: insight.stock_out_in_days != null && insight.stock_out_in_days <= 14 ? '#ef4444' : 'var(--text-primary)' }}>
+                      {insight.stock_out_in_days != null ? `${insight.stock_out_in_days} ${t('insight.days')}` : '—'}
+                    </div>
+                  </div>
+                  <div className="surface" style={{ padding: '12px' }}>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontWeight: '500' }}>{t('insight.confidence')}</div>
+                    <div style={{ fontSize: '20px', fontWeight: '700', marginTop: '4px', textTransform: 'capitalize', color: insight.confidence === 'high' ? '#10b981' : insight.confidence === 'medium' ? '#f59e0b' : '#ef4444' }}>
+                      {insight.confidence}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Key Factors */}
+                {insight.key_factors && insight.key_factors.length > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '500', marginBottom: '6px' }}>{t('insight.key_factors')}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {insight.key_factors.map((f, i) => (
+                        <div key={i} style={{ fontSize: '12px', padding: '4px 8px', background: 'var(--surface-hover)', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ color: '#10b981' }}>◆</span> {f}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Risk Factors */}
+                {insight.risk_factors && insight.risk_factors.length > 0 && (
+                  <div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontWeight: '500', marginBottom: '6px' }}>{t('insight.risk_factors')}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      {insight.risk_factors.map((f, i) => (
+                        <div key={i} style={{ fontSize: '12px', padding: '4px 8px', background: 'var(--surface-hover)', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ color: '#ef4444' }}>⚠</span> {f}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Error state */}
+            {insight && insight.status === 'error' && !insightLoading && (
+              <div className="surface" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <AlertCircle size={20} style={{ marginBottom: '8px', margin: '0 auto 8px', display: 'block' }} />
+                <div style={{ fontSize: '13px' }}>{insight.message || 'Failed to generate insight'}</div>
+              </div>
+            )}
+
+            {/* No data state */}
+            {insight && insight.status === 'no_data' && !insightLoading && (
+              <div className="surface" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                <AlertCircle size={20} style={{ marginBottom: '8px', margin: '0 auto 8px', display: 'block' }} />
+                <div style={{ fontSize: '13px' }}>{insight.message || t('insight.no_data')}</div>
               </div>
             )}
           </div>

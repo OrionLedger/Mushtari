@@ -5,6 +5,7 @@ import asyncio
 
 from serving.services.predict_product_demand import predict_product_demand
 from serving.services.forecast_product import forecast_product
+from serving.services.llm_insight import llm_product_insight
 from serving.services.add_records import add_sales_record
 from serving.services.train_xgboost_regressor_sales import train_xgboost_regressor
 from api.models.demand_models import PredictPayload, PredictBatchPayload, SalesPayload, TrainPayload
@@ -66,6 +67,41 @@ async def list_products_api():
         return [{"id": str(pid), "name": f"Product {pid}"} for pid in pids]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed fetching products: {str(e)}")
+
+
+VALID_SCOPES = {"day", "week", "month", "year", "5years", "beginning"}
+
+@router.get("/products/{product_id}/insight")
+async def product_insight_api(product_id: int, scope: str = "week", horizon: int = 4):
+    """
+    Generate import/ordering insights for a product using an LLM.
+
+    Combines product details, sales velocity, forecast, XGBoost prediction,
+    and inventory level to produce an actionable reorder recommendation.
+
+    Scope: day, week, month (controls the forecast aggregation for context).
+    Horizon: number of forecast periods to include (default 4).
+    """
+    if scope not in VALID_SCOPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid scope '{scope}'. Must be one of: {', '.join(sorted(VALID_SCOPES))}"
+        )
+    try:
+        result = await run_in_threadpool(
+            llm_product_insight,
+            product_id=product_id,
+            scope=scope,
+            horizon=horizon,
+        )
+        if result.get("status") == "error":
+            raise HTTPException(status_code=404, detail=result.get("message", "Unknown error"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/predict")
 async def predict_api(payload: PredictPayload):
