@@ -5,7 +5,7 @@ import asyncio
 from typing import Optional
 
 from serving.services.predict_product_demand import predict_product_demand
-from serving.services.forecast_product import forecast_product
+from serving.services.llm_forecast import llm_forecast_product
 from serving.services.llm_insight import llm_product_insight
 from serving.services.add_records import add_sales_record
 from serving.services.train_xgboost_regressor_sales import train_xgboost_regressor
@@ -202,15 +202,18 @@ async def predict_batch_api(payload: PredictBatchPayload):
 
 
 @router.get("/forecast")
-async def forecast_api(product_id: int, horizon: int = 7, scope: str = "day"):
+async def llm_forecast_api(product_id: int, horizon: int = 7, scope: str = "day"):
     """
     example:
     /api/forecast?product_id=1&horizon=7&scope=month
+
+    Uses LLM (Groq/Llama) to generate the forecast, with ARIMA fallback.
     """
-    if scope not in {"day", "week", "month", "year"}:
-        raise HTTPException(status_code=400, detail=f"Invalid scope '{scope}'. Use: day, week, month, year")
+    valid_scopes = {"day", "week", "month", "year", "5years", "beginning"}
+    if scope not in valid_scopes:
+        raise HTTPException(status_code=400, detail=f"Invalid scope '{scope}'. Use: {', '.join(sorted(valid_scopes))}")
     try:
-        cache_key = f"{product_id}_{horizon}_{scope}"
+        cache_key = f"llm_{product_id}_{horizon}_{scope}"
         current_time = time.time()
         
         # Evaluate Cache Hit
@@ -219,9 +222,9 @@ async def forecast_api(product_id: int, horizon: int = 7, scope: str = "day"):
             if current_time - timestamp < CACHE_TTL:
                 return cached_data
                 
-        # Cache Miss - Offload computationally heavy ARIMA auto_core to threadpool
+        # Cache Miss - Offload LLM call to threadpool
         forecast_result = await run_in_threadpool(
-            forecast_product,
+            llm_forecast_product,
             product_id=product_id,
             horizon=horizon,
             scope=scope
