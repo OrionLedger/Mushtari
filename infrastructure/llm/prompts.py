@@ -20,8 +20,8 @@ RULES:
 4. Do NOT converge to the mean too quickly — the first few forecast periods should follow the most recent observed values.
 5. Forecast values must be positive numbers (no negatives or zeros unless the data supports it).
 6. Be realistic — don't extrapolate extreme values beyond what the data supports.
-7. Use the HISTORICAL DAILY DATA WITH FEATURES table to identify patterns by month and day-of-week. Sales often vary by season (month) and day of week.
-8. The PrevDaySales and Roll7d columns show the previous day's sales and trailing 7-day sum. Only period 1 of the forecast has known values for these — for later periods they depend on the forecast itself. Use the month and day-of-week patterns instead.
+7. Use the HISTORICAL DATA WITH FEATURES table. Features are computed at the forecast scope (day/week/month/year). Look for seasonal patterns in month, day-of-week, week-of-year, or quarter depending on the scope.
+8. The prev_period_sales and rollback_N columns show the previous period's sales and trailing N-period sum. Only period 1 of the forecast has known values for these — for later periods they depend on the forecast itself. Use the calendar-based features (month, day-of-week, etc.) instead.
 9. Return ONLY valid JSON matching the specified schema exactly.
 
 Your forecast will be compared against traditional ARIMA models. Accuracy matters."""
@@ -34,13 +34,13 @@ def build_forecast_prompt(
     product_name: str,
     horizon: int,
     scope: str,
-    daily_values: List[float],
-    weekly_sums: List[float],
-    daily_mean: float,
-    daily_std: float,
-    weekly_mean: float,
-    last_week_sum: float,
-    day_of_week_avg: Dict[str, float],
+    scope_values: List[float],
+    scope_mean: float,
+    scope_std: float,
+    scope_count: int,
+    scope_trend_values: List[float],
+    scope_last_value: float,
+    day_of_week_avg: Optional[Dict[str, float]] = None,
     extra_context: Optional[Dict[str, Any]] = None,
     historical_features: Optional[List[Dict]] = None,
     future_features: Optional[List[Dict]] = None,
@@ -52,22 +52,26 @@ def build_forecast_prompt(
         product_id: Product ID.
         product_name: Product name.
         horizon: Number of periods to forecast.
-        scope: Time scope (day, week, month, year, 5years).
-        daily_values: Last N daily sales values (most recent first).
-        weekly_sums: Last N weekly sums (most recent first).
-        daily_mean: Average daily sales over full history.
-        daily_std: Standard deviation of daily sales.
-        weekly_mean: Average weekly sum over full history.
-        last_week_sum: Sum of the most recent (possibly partial) week.
-        day_of_week_avg: Dict mapping day name to average sales.
+        scope: Time scope label (day, week, month, year).
+        scope_values: Last N scope-period sales values (most recent first).
+        scope_mean: Average sales per scope period.
+        scope_std: Standard deviation of per-period sales.
+        scope_count: Number of scope periods in history.
+        scope_trend_values: Last N scope values for trend detection.
+        scope_last_value: Most recent scope period's sales.
+        day_of_week_avg: Dict mapping day name to average sales (day scope only).
         extra_context: Optional extra info (promotions, stock level, etc.).
+        historical_features: Per-period feature dicts (most recent first).
+        future_features: Per-period feature dicts for forecast periods.
 
     Returns:
         List of {"role": "system"|"user", "content": str} messages.
     """
-    # Determine trend direction from recent weeks
-    recent_weeks = weekly_sums[-6:] if len(weekly_sums) >= 6 else weekly_sums
-    trend = _detect_trend(recent_weeks)
+    scope_cap = scope.capitalize()  # "Day", "Week", "Month", "Year"
+
+    # Determine trend direction from scope-aggregated values
+    recent = scope_trend_values[-6:] if len(scope_trend_values) >= 6 else scope_trend_values
+    trend = _detect_trend(recent) if len(recent) >= 3 else "Insufficient data to determine trend"
 
     # Build the user prompt
     lines = [f"Provide a {scope}ly demand forecast for the following product."]
@@ -76,63 +80,65 @@ def build_forecast_prompt(
     lines.append(f"FORECAST HORIZON: {horizon} {scope}(s)")
     lines.append("")
     lines.append("HISTORICAL STATISTICS:")
-    lines.append(f"  Daily average: {daily_mean:.1f}")
-    lines.append(f"  Daily std dev: {daily_std:.1f}")
-    lines.append(f"  Weekly average: {weekly_mean:.1f}")
-    lines.append(f"  Number of data days: {len(daily_values)}")
+    lines.append(f"  {scope_cap} average: {scope_mean:.1f}")
+    lines.append(f"  {scope_cap} std dev: {scope_std:.1f}")
+    lines.append(f"  Number of {scope} periods: {scope_count}")
     lines.append("")
 
-    if daily_values:
-        lines.append(f"LAST {len(daily_values)} DAILY VALUES (most recent first):")
-        lines.append(f"  {_format_list(daily_values)}")
+    if scope_values:
+        lines.append(f"LAST {len(scope_values)} {scope_cap.upper()} VALUES (most recent first):")
+        lines.append(f"  {_format_list(scope_values)}")
         lines.append("")
 
-    if weekly_sums:
-        lines.append(f"LAST {len(weekly_sums)} WEEKLY SUMS (most recent first):")
-        lines.append(f"  {_format_list(weekly_sums)}")
-        lines.append("")
-
-    if day_of_week_avg:
+    if day_of_week_avg and scope == "day":
         lines.append("DAY-OF-WEEK AVERAGES:")
         for day, avg in day_of_week_avg.items():
             lines.append(f"  {day}: {avg:.1f}")
         lines.append("")
 
-    # ── Per-day feature table ─────────────────────────────────────────────
+    # ── Feature table ─────────────────────────────────────────────────────
+    # Build headers dynamically from the first feature dict's keys
+    hist_key_order = ["date", "quantity", "month", "day_of_week", "week_of_year",
+                      "week_of_month", "quarter", "prev_period_sales", "rollback_N"]
+    future_key_order = ["period", "date", "month", "day_of_week", "week_of_year",
+                        "week_of_month", "quarter", "prev_period_sales", "rollback_N"]
+
+    def _fmt_val(val, width):
+        if val is None:
+            return "-".center(width)
+        if isinstance(val, float):
+            return f"{val:>{width}.1f}"
+        return f"{str(val):>{width}s}"
+
     if historical_features:
-        lines.append("HISTORICAL DAILY DATA WITH FEATURES (most recent first):")
-        lines.append("  Date       | Qty    | Mon | DOW | PrevDay | Roll7d")
-        lines.append("  " + "-" * 55)
+        # Determine which columns are present
+        sample_keys = set(historical_features[0].keys()) if historical_features else set()
+        cols = [k for k in hist_key_order if k in sample_keys]
+        lines.append(f"HISTORICAL {scope_cap.upper()} DATA WITH FEATURES (most recent first):")
+        header = "  " + " | ".join(k.replace("_", " ").title().ljust(10) for k in cols)
+        lines.append(header)
+        lines.append("  " + "-" * len(header))
         for f in historical_features:
-            pd_ = f.get("prev_day_sales", "")
-            pd_str = f"{pd_:>7.1f}" if pd_ is not None else "     na"
-            r7_ = f.get("rollback_7d", "")
-            r7_str = f"{r7_:>7.1f}" if r7_ is not None else "     na"
-            lines.append(
-                f"  {f['date']} | {f['quantity']:>6.1f} | "
-                f"{f['month']:>3d} | {f['day_of_week']:>3d} | "
-                f"{pd_str} | {r7_str}"
-            )
+            row_str = "  " + " | ".join(str(f.get(k, "-")).rjust(10) if f.get(k) is not None else "-".rjust(10) for k in cols)
+            lines.append(row_str)
         lines.append("")
 
     if future_features:
-        lines.append("FEATURES FOR FORECAST PERIODS (month/day-of-week are known; prev_day/roll7d only for period 1):")
-        lines.append("  Period | Date       | Mon | DOW | PrevDay     | Roll7d")
-        lines.append("  " + "-" * 60)
+        sample_keys = set(future_features[0].keys()) if future_features else set()
+        cols = [k for k in future_key_order if k in sample_keys]
+        lines.append(f"FEATURES FOR FORECAST {scope_cap.upper()} PERIODS:")
+        note = "(month/dow/week_of_year/quarter are known from calendar; prev_period_sales and rollback_N known only for period 1)"
+        lines.append("  " + note)
+        header = "  " + " | ".join(k.replace("_", " ").title().ljust(10) for k in cols)
+        lines.append(header)
+        lines.append("  " + "-" * len(header))
         for f in future_features:
-            pd_ = f.get("prev_day_sales", "")
-            pd_str = f"{pd_:>7.1f}" if pd_ is not None else "  (future)"
-            r7_ = f.get("rollback_7d", "")
-            r7_str = f"{r7_:>7.1f}" if r7_ is not None else "  (future)"
-            lines.append(
-                f"  {f['period']:>6d} | {f['date']} | "
-                f"{f['month']:>3d} | {f['day_of_week']:>3d} | "
-                f"{pd_str:>10s} | {r7_str:>10s}"
-            )
+            row_str = "  " + " | ".join(str(f.get(k, "-")).rjust(10) if f.get(k) is not None else "-".rjust(10) for k in cols)
+            lines.append(row_str)
         lines.append("")
 
     lines.append(f"RECENT TREND: {trend}")
-    lines.append(f"LAST WEEK SUM: {last_week_sum:.1f}")
+    lines.append(f"LAST {scope_cap.upper()} VALUE: {scope_last_value:.1f}")
     lines.append("")
 
     if extra_context:
@@ -165,17 +171,17 @@ def build_forecast_prompt(
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
-def _detect_trend(recent_weeks: List[float]) -> str:
-    """Detect trend direction from recent weekly values."""
-    if len(recent_weeks) < 3:
+def _detect_trend(recent_values: List[float]) -> str:
+    """Detect trend direction from recent aggregated values."""
+    if len(recent_values) < 3:
         return "Insufficient data to determine trend"
 
     # Simple linear slope approximation
-    n = len(recent_weeks)
+    n = len(recent_values)
     x_avg = (n - 1) / 2.0
-    y_avg = sum(recent_weeks) / n
+    y_avg = sum(recent_values) / n
 
-    num = sum((i - x_avg) * (recent_weeks[i] - y_avg) for i in range(n))
+    num = sum((i - x_avg) * (recent_values[i] - y_avg) for i in range(n))
     den = sum((i - x_avg) ** 2 for i in range(n))
 
     if den == 0:
