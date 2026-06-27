@@ -57,6 +57,7 @@ const Product = () => {
   const [horizon, setHorizon] = useState(30);
   const [forecastData, setForecastData] = useState(null);
   const [forecastLoading, setForecastLoading] = useState(false);
+  const [forecastError, setForecastError] = useState(null);
 
   const [insight, setInsight] = useState(null);
   const [insightLoading, setInsightLoading] = useState(false);
@@ -85,13 +86,17 @@ const Product = () => {
   const handleForecast = async () => {
     if (!selectedId) return;
     setForecastLoading(true);
+    setForecastError(null);
     try {
       const res = await dataService.getForecast(parseInt(selectedId), horizon);
       if (res && res.forecast) {
         setForecastData(res.forecast);
+      } else {
+        setForecastError('Forecast returned no data.');
       }
     } catch (err) {
       console.error('Forecast failed:', err);
+      setForecastError(err.message || 'Failed to generate forecast.');
     } finally {
       setForecastLoading(false);
     }
@@ -127,6 +132,7 @@ const Product = () => {
   useEffect(() => {
     if (!selectedId) return;
     setForecastData(null);
+    setForecastError(null);
     setLoadingProduct(true);
     setLoadingSales(true);
 
@@ -340,6 +346,11 @@ const Product = () => {
                     )}
                   </AreaChart>
                 </ResponsiveContainer>
+              </div>
+            )}
+            {forecastError && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', marginTop: '8px', borderRadius: '8px', background: 'rgba(239,68,68,0.08)', color: '#ef4444', fontSize: '12px' }}>
+                <AlertCircle size={14} /> {forecastError}
               </div>
             )}
           </div>
