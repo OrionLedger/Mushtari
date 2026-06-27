@@ -340,7 +340,7 @@ class SQLiteRepository(BaseRepo):
         Execute a multi-statement SQL script.
 
         Splits on semicolons and executes each statement individually.
-        Handles SQLite-compatible DDL and DML.
+        Skips PostgreSQL-specific constructs automatically.
 
         Args:
             script_content: The raw SQL script string.
@@ -350,13 +350,36 @@ class SQLiteRepository(BaseRepo):
         """
         if not self._connected:
             self.connect()
+
+        _PG_KEYWORDS = [
+            "CREATE EXTENSION",
+            "DO $$",
+            "BEGIN",
+        ]
+
         try:
             # Split into individual statements
             statements = [s.strip() for s in script_content.split(";") if s.strip()]
             for stmt in statements:
                 # Skip empty or comment-only lines
-                if stmt.upper().startswith("CREATE EXTENSION"):
-                    continue  # PostgreSQL-specific, skip
+                up = stmt.upper().strip()
+                if not up:
+                    continue
+                # Skip PostgreSQL-specific constructs
+                skip = False
+                for kw in _PG_KEYWORDS:
+                    if up.startswith(kw):
+                        skip = True
+                        break
+                if skip:
+                    continue
+                # Skip IF NOT EXISTS constraints / ALTER TABLE ... ADD CONSTRAINT
+                # (PostgreSQL-specific syntax, SQLite handles inline)
+                if up.startswith("ALTER TABLE") and "ADD CONSTRAINT" in up:
+                    continue
+                if up.startswith("ALTER TABLE") and "ADD " in up and "CHECK" not in up:
+                    # Skip other ALTER TABLE additions (PK/FK are inline in SQLite)
+                    continue
                 self._conn.execute(stmt)
             self._conn.commit()
             return True

@@ -1,1 +1,1 @@
-from etl.flows.etl_flow import etl_pipeline_flow
+# ETL flows stub — for import compatibility only.

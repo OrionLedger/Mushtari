@@ -1,5 +1,5 @@
 from typing import List
-from repo.cassandra_repo import CassandraRepository
+from repo import get_repository
 from src.train.xg_boost import train_xg_boost_regressor
 from src.retrieving.get_product_sales import get_product_sales
 from sklearn.model_selection import train_test_split
@@ -16,7 +16,7 @@ def train_xgboost_regressor(
         test_size = 0.2
         ):
     if repo is None:
-        repo = CassandraRepository()
+        repo = get_repository("postgres", shared=True)
     """
     Trains an XGBoost regressor model.
     

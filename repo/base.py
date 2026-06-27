@@ -248,6 +248,17 @@ class BaseRepo(ABC):
         """Automatically close the connection on context manager exit."""
         self.close()
 
+    # ── Optional (not all backends implement) ──────────────────────────
+
+    def set_keyspace(self, keyspace: str) -> None:
+        """
+        Set the default keyspace / schema / database for subsequent operations.
+
+        Default no-op — only relevant for backends that support namespacing
+        (Cassandra keyspaces, PostgreSQL schemas, etc.).
+        """
+        pass
+
     # ── Dunder ──────────────────────────────────────────────────────────
 
     def __repr__(self) -> str:
