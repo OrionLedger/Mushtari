@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Wifi, WifiOff, DollarSign, Percent, MousePointerClick, PieChart, RefreshCw, AlertCircle } from 'lucide-react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  AreaChart, Area, BarChart, Bar, PieChart as RechartsPie, Pie, Cell,
+  AreaChart, Area, BarChart, Bar,
 } from 'recharts';
 import dataService from '../../services/dataService';
 
@@ -109,13 +109,8 @@ const DemandChart = () => {
 const Dashboard = () => {
   const [apiStatus, setApiStatus]     = useState(null);
   const [kpis, setKpis]               = useState(null);
-  const [revenueTab, setRevenueTab]   = useState('product');
   const [revenueData, setRevenueData] = useState([]);
   const [revLoading, setRevLoading]   = useState(false);
-  
-  const [usersTab, setUsersTab]       = useState('device');
-  const [usersData, setUsersData]     = useState([]);
-  const [usersLoading, setUsersLoading] = useState(false);
 
   const [alerts, setAlerts]           = useState([]);
   const [alertsLoading, setAlertsLoading] = useState(false);
@@ -138,25 +133,13 @@ const Dashboard = () => {
     const loadRevenue = async () => {
       setRevLoading(true);
       try {
-        const data = await dataService.getBreakdown(revenueTab);
+        const data = await dataService.getBreakdown('product');
         setRevenueData(data || []);
       } catch (err) { console.error(err); }
       finally { setRevLoading(false); }
     };
     loadRevenue();
-  }, [revenueTab]);
-
-  useEffect(() => {
-    const loadUsers = async () => {
-      setUsersLoading(true);
-      try {
-        const data = await dataService.getUserStats(usersTab);
-        setUsersData(data || []);
-      } catch (err) { console.error(err); }
-      finally { setUsersLoading(false); }
-    };
-    loadUsers();
-  }, [usersTab]);
+  }, []);
 
   useEffect(() => {
     const loadAlerts = async () => {
@@ -170,21 +153,7 @@ const Dashboard = () => {
     loadAlerts();
   }, []);
 
-  const TabBar = ({ tabs, active, onSelect }) => (
-    <div style={{ display: 'flex', gap: '4px', background: 'var(--surface-hover)', padding: '4px', borderRadius: '8px' }}>
-      {tabs.map(t => (
-        <button key={t} onClick={() => onSelect(t)}
-          style={{
-            padding: '5px 12px', fontSize: '11px', borderRadius: '6px', border: 'none',
-            cursor: 'pointer', textTransform: 'capitalize', fontFamily: 'inherit',
-            fontWeight: active === t ? '600' : '400',
-            background: active === t ? 'var(--accent-color)' : 'transparent',
-            color:      active === t ? '#0f172a' : 'var(--text-secondary)',
-          }}
-        >{t}</button>
-      ))}
-    </div>
-  );
+
 
   return (
     <div className="dashboard">
@@ -234,19 +203,16 @@ const Dashboard = () => {
       {/* ── Demand Chart ── */}
       <DemandChart />
 
-      {/* ── Revenue By & Users By ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '24px' }}>
-
-        {/* Revenue By */}
+      {/* ── Revenue Breakdown ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px', marginTop: '24px' }}>
         <div className="surface" style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h3 className="outfit">Revenue Breakdown</h3>
-            <TabBar tabs={['product', 'country', 'channel']} active={revenueTab} onSelect={setRevenueTab} />
           </div>
           {revLoading && <LoadingOverlay />}
           {!revLoading && revenueData.length === 0 && <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: '13px' }}>No revenue data yet.</div>}
           {revenueData.length > 0 && (
-            <ResponsiveContainer width="100%" height={220}>
+            <ResponsiveContainer width="100%" height={280}>
               <BarChart data={revenueData} layout="vertical" margin={{ left: 0, right: 20 }}>
                 <XAxis type="number" stroke="var(--text-secondary)" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => `$${(v/1000).toFixed(0)}k`} />
                 <YAxis type="category" dataKey="name" stroke="var(--text-secondary)" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={85} />
@@ -254,41 +220,6 @@ const Dashboard = () => {
                 <Bar dataKey="value" fill={BAR_COLOR} radius={[0, 6, 6, 0]} barSize={16} />
               </BarChart>
             </ResponsiveContainer>
-          )}
-        </div>
-
-        {/* Users By */}
-        <div className="surface" style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-            <h3 className="outfit">User Acquisition</h3>
-            <TabBar tabs={['device', 'source']} active={usersTab} onSelect={setUsersTab} />
-          </div>
-          {usersLoading && <LoadingOverlay />}
-          {!usersLoading && usersData.length === 0 && <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', fontSize: '13px' }}>No user data yet.</div>}
-          {usersData.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-              <ResponsiveContainer width={160} height={200}>
-                <RechartsPie>
-                  <Pie data={usersData} cx="50%" cy="50%" innerRadius={48} outerRadius={70} paddingAngle={4} dataKey="value">
-                    {usersData.map((entry, index) => (
-                      <Cell key={index} fill={entry.color || (index % 2 === 0 ? 'var(--accent-color)' : '#a855f7')} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={v => [`${v}%`, '']} contentStyle={{ backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '8px', fontSize: '12px' }} />
-                </RechartsPie>
-              </ResponsiveContainer>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
-                {usersData.map((entry, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: entry.color || (i % 2 === 0 ? 'var(--accent-color)' : '#a855f7'), flexShrink: 0 }} />
-                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{entry.name}</span>
-                    </div>
-                    <span style={{ fontSize: '12px', fontWeight: '600' }}>{entry.value}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
           )}
         </div>
       </div>
