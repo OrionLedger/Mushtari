@@ -89,14 +89,21 @@ const Product = () => {
     setForecastError(null);
     try {
       const res = await dataService.getForecast(parseInt(selectedId), horizon);
-      if (res && res.forecast) {
+      if (res && res.forecast && res.forecast.length > 0) {
         setForecastData(res.forecast);
+      } else if (res && res.status === 'no_data') {
+        setForecastError('لا توجد بيانات مبيعات كافية للتوقع (no sales data for this product).');
       } else {
-        setForecastError('Forecast returned no data.');
+        setForecastError('تعذر إنشاء التوقعات - تحقق من اتصال الخادم (Forecast returned no data).');
       }
     } catch (err) {
       console.error('Forecast failed:', err);
-      setForecastError(err.message || 'Failed to generate forecast.');
+      const msg = err.message || '';
+      if (msg.includes('Network error') || msg.includes('Is the backend running')) {
+        setForecastError('تعذر الاتصال بالخادم - تأكد من أن الخادم يعمل على المنفذ 8000 (Cannot reach server).');
+      } else {
+        setForecastError(msg || 'فشل في إنشاء التوقعات (Failed to generate forecast).');
+      }
     } finally {
       setForecastLoading(false);
     }
@@ -342,7 +349,7 @@ const Product = () => {
                     <Tooltip contentStyle={{ backgroundColor: 'var(--surface-color)', border: '1px solid var(--border-color)', borderRadius: '12px', color: 'var(--text-primary)', fontSize: '12px' }} />
                     <Area type="monotone" dataKey="sales" name={t('chart.sales')} stroke="var(--accent-color)" strokeWidth={3} fillOpacity={1} fill="url(#colorProductSalesTimeline)" />
                     {forecastData && forecastData.length > 0 && (
-                      <Area type="monotone" dataKey="forecast" name={t('chart.forecast')} stroke="var(--text-secondary)" strokeDasharray="5 5" strokeWidth={2} fillOpacity={0} dot={false} />
+                      <Area type="monotone" dataKey="forecast" name={t('chart.forecast')} stroke="#f59e0b" strokeDasharray="5 5" strokeWidth={3} fillOpacity={0.05} fill="#f59e0b" dot={{ r: 3, fill: '#f59e0b' }} connectNulls />
                     )}
                   </AreaChart>
                 </ResponsiveContainer>

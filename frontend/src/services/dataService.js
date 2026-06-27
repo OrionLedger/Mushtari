@@ -97,10 +97,10 @@ const dataService = {
    * @param {number} horizon - number of periods at the requested scope
    * @param {string} scope - day, week, month, year, 5years, beginning
    */
-  async getForecast(productId, horizon = 7, scope = 'day') {
+  async getForecast(productId, horizon = 7) {
     try {
       const response = await api.get(`/api/forecast`, {
-        params: { product_id: productId, horizon, scope }
+        params: { product_id: productId, horizon }
       });
       return response.data;
     } catch (error) {

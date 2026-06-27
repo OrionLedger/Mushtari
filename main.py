@@ -12,6 +12,8 @@ from api.router.sources import router as sources_router
 from api.router.imports import router as imports_router
 
 from serving.services.sync_scheduler import SyncScheduler
+from fastapi.staticfiles import StaticFiles
+import os
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -54,6 +56,14 @@ app.include_router(kpi_router)
 app.include_router(analytics_router)
 app.include_router(sources_router)
 app.include_router(imports_router)
+
+# ── Serve frontend static build ──────────────────────────────────────
+_frontend_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "dist")
+if os.path.isdir(_frontend_dir):
+    app.mount("/app", StaticFiles(directory=_frontend_dir, html=True), name="frontend")
+    print(f"Frontend mounted at /app from {_frontend_dir}")
+else:
+    print(f"Warning: frontend dist not found at {_frontend_dir}")
 
 # Instrument the app with Prometheus
 Instrumentator().instrument(app).expose(app)
