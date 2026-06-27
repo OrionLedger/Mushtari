@@ -254,6 +254,35 @@ class SQLiteRepository(BaseRepo):
             logger.error(f"SQLite update failed on {table_name}: {e}")
             return False
 
+    def update_records(
+        self,
+        table_name: str,
+        filters: Dict[str, Any],
+        updates: Dict[str, Any],
+    ) -> int:
+        """Update fields on all records matching the filters."""
+        if not self._connected:
+            self.connect()
+
+        set_clause = ", ".join(f"{self._quote(k)} = ?" for k in updates.keys())
+        where_clause = " AND ".join(f"{self._quote(k)} = ?" for k in filters.keys())
+        set_vals = list(self._serialize_values(updates).values())
+        filter_vals = list(self._serialize_values(filters).values())
+
+        query = (
+            f"UPDATE {self._quote(table_name)} "
+            f"SET {set_clause} "
+            f"WHERE {where_clause}"
+        )
+
+        try:
+            cursor = self._conn.execute(query, set_vals + filter_vals)
+            self._conn.commit()
+            return cursor.rowcount
+        except sqlite3.Error as e:
+            logger.error(f"SQLite bulk update failed on {table_name}: {e}")
+            return 0
+
     def delete_record(
         self,
         table_name: str,

@@ -96,14 +96,27 @@ class AlertResolvePayload(BaseModel):
     ts: str
 
 @router.get("/alerts")
-async def get_alerts(severity: Optional[str] = Query(None)):
+async def get_alerts(severity: Optional[str] = Query(None), include_resolved: bool = Query(False)):
     """
-    Retrieves live system anomaly alerts from the Cassandra fact-store.
+    Retrieves live system anomaly alerts.
     """
     try:
-        return await run_in_threadpool(AlertService.get_active_alerts, severity=severity)
+        return await run_in_threadpool(AlertService.get_active_alerts, severity=severity, include_resolved=include_resolved)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Alerts retrieval failed: {str(e)}")
+
+@router.post("/alerts/mark-all-read")
+async def mark_all_alerts_read():
+    """
+    Marks all unresolved alerts as resolved.
+    """
+    try:
+        ok = await run_in_threadpool(AlertService.mark_all_alerts_read)
+        if not ok:
+            raise Exception("Failed to mark all alerts as resolved")
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/alerts/resolve")
 async def resolve_alert(payload: AlertResolvePayload):

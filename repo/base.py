@@ -177,6 +177,28 @@ class BaseRepo(ABC):
         """
         ...
 
+    # ── Bulk Operations ──────────────────────────────────────────────────
+
+    @abstractmethod
+    def update_records(
+        self,
+        table_name: str,
+        filters: Dict[str, Any],
+        updates: Dict[str, Any],
+    ) -> int:
+        """
+        Update fields on all records matching the filters.
+
+        Args:
+            table_name:  The target table / collection.
+            filters:     A dict of column → value pairs to match.
+            updates:     A dict of column → new_value pairs to apply.
+
+        Returns:
+            Number of records updated.
+        """
+        ...
+
     # ── Utility ─────────────────────────────────────────────────────────
 
     @abstractmethod

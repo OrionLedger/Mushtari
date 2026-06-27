@@ -240,6 +240,35 @@ class PostgresRepository(BaseRepo):
             logger.error(f"Update failed on {table_name}: {e}")
             return False
 
+    def update_records(
+        self,
+        table_name: str,
+        filters: Dict[str, Any],
+        updates: Dict[str, Any],
+    ) -> int:
+        """Update fields for all records matching the filters."""
+        if not self._connected:
+            self.connect()
+        set_clause = ", ".join([f"{k} = :set_{k}" for k in updates.keys()])
+        where_clause = " AND ".join([f"{k} = :filter_{k}" for k in filters.keys()])
+        query = f"UPDATE {table_name} SET {set_clause} WHERE {where_clause}"
+        
+        params = {}
+        import json
+        for k, v in updates.items():
+            params[f"set_{k}"] = json.dumps(v) if isinstance(v, (dict, list)) else v
+        for k, v in filters.items():
+            params[f"filter_{k}"] = v
+
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(text(query), params)
+                conn.commit()
+                return result.rowcount
+        except SQLAlchemyError as e:
+            logger.error(f"Bulk update failed on {table_name}: {e}")
+            return 0
+
     def delete_record(
         self,
         table_name: str,

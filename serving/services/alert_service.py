@@ -14,14 +14,16 @@ class AlertService:
         return get_repository("postgres")
 
     @classmethod
-    def get_active_alerts(cls, severity: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_active_alerts(cls, severity: Optional[str] = None, include_resolved: bool = False) -> List[Dict[str, Any]]:
         """
-        Retrieves recent alerts from the PostgreSQL system_alerts registry.
+        Retrieves alerts from the PostgreSQL system_alerts registry.
         """
         repo = cls._get_repo()
         filters = {}
         if severity and severity != 'all':
             filters["severity"] = severity
+        if not include_resolved:
+            filters["is_resolved"] = False
             
         rows = repo.get_record("system_alerts", filters=filters)
         
@@ -44,6 +46,26 @@ class AlertService:
             })
             
         return sorted(result, key=lambda x: x['ts'], reverse=True)
+
+    @classmethod
+    def mark_all_alerts_read(cls) -> bool:
+        """
+        Sets is_resolved = True on all unresolved alerts.
+        """
+        from infrastructure.logging.logger import get_logger
+        logger = get_logger(__name__)
+        repo = cls._get_repo()
+        
+        try:
+            repo.update_records(
+                table_name="system_alerts",
+                filters={"is_resolved": False},
+                updates={"is_resolved": True},
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Failed to mark all alerts as resolved: {e}")
+            return False
 
     @classmethod
     def resolve_alert(cls, alert_id: str, severity: str = None, alert_ts: str = None) -> bool:

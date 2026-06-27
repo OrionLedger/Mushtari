@@ -231,7 +231,7 @@ const Dashboard = () => {
           <h3 className="outfit" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '16px' }}>
             🔔 Insight Stream
           </h3>
-          <button onClick={() => setAlerts([])} className="btn btn-ghost" style={{ fontSize: '11px', color: 'var(--text-secondary)' }} disabled={alerts.length === 0}>
+          <button onClick={async () => { try { await dataService.markAllAlertsRead(); setAlerts([]); } catch (e) { console.error(e); } }} className="btn btn-ghost" style={{ fontSize: '11px', color: 'var(--text-secondary)' }} disabled={alerts.length === 0}>
             Mark All Read
           </button>
         </div>
