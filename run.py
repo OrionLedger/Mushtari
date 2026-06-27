@@ -16,7 +16,6 @@ Usage (packaged):
 """
 import os
 import sys
-import webbrowser
 import threading
 import time
 
@@ -102,21 +101,6 @@ def _start_server():
     )
 
 
-def _open_browser(host: str, port: int, delay: float = 2.0):
-    """Open the default browser to the docs page after a short delay."""
-
-    def _open():
-        time.sleep(delay)
-        url = f"http://{host}:{port}/docs"
-        try:
-            webbrowser.open(url)
-        except Exception:
-            pass
-
-    t = threading.Thread(target=_open, daemon=True)
-    t.start()
-
-
 def main():
     # Resolve .env location: next to the executable or in the project root
     env_path = os.path.join(BASE_DIR, ".env")
@@ -132,9 +116,6 @@ def main():
 
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8000"))
-
-    # Open browser after server starts
-    _open_browser(host, port)
 
     # Start the server (blocking)
     _start_server()
