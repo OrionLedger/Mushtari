@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Wifi, WifiOff, DollarSign, Percent, MousePointerClick, PieChart, RefreshCw, AlertCircle } from 'lucide-react';
+import { Wifi, WifiOff, DollarSign, Percent, RefreshCw, AlertCircle } from 'lucide-react';
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   AreaChart, Area, BarChart, Bar,
@@ -182,8 +182,6 @@ const Dashboard = () => {
          {[
            { label: 'Net Revenue', value: kpis?.revenue || '---', icon: <DollarSign size={20} />, color: '#10b981', change: kpis?.revenue_change },
            { label: 'Growth Output', value: kpis?.growth || '---', icon: <Percent size={20} />, color: '#3b82f6', change: kpis?.growth_change },
-           { label: 'CVR', value: kpis?.conversion || '---', icon: <MousePointerClick size={20} />, color: '#f59e0b', change: '+0.4%' },
-           { label: 'Profit Yield', value: kpis?.margin || '---', icon: <PieChart size={20} />, color: '#a855f7', change: '+1.2%' },
          ].map((stat, i) => (
           <div key={i} className="surface" style={{ position: 'relative' }}>
             {!kpis && <div style={{ position: 'absolute', inset: 0, background: 'var(--surface-color)', opacity: 0.5, borderRadius: '16px' }} />}
