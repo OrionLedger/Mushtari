@@ -20,7 +20,9 @@ RULES:
 4. Do NOT converge to the mean too quickly — the first few forecast periods should follow the most recent observed values.
 5. Forecast values must be positive numbers (no negatives or zeros unless the data supports it).
 6. Be realistic — don't extrapolate extreme values beyond what the data supports.
-7. Return ONLY valid JSON matching the specified schema exactly.
+7. Use the HISTORICAL DAILY DATA WITH FEATURES table to identify patterns by month and day-of-week. Sales often vary by season (month) and day of week.
+8. The PrevDaySales and Roll7d columns show the previous day's sales and trailing 7-day sum. Only period 1 of the forecast has known values for these — for later periods they depend on the forecast itself. Use the month and day-of-week patterns instead.
+9. Return ONLY valid JSON matching the specified schema exactly.
 
 Your forecast will be compared against traditional ARIMA models. Accuracy matters."""
 
@@ -40,6 +42,8 @@ def build_forecast_prompt(
     last_week_sum: float,
     day_of_week_avg: Dict[str, float],
     extra_context: Optional[Dict[str, Any]] = None,
+    historical_features: Optional[List[Dict]] = None,
+    future_features: Optional[List[Dict]] = None,
 ) -> List[Dict[str, str]]:
     """
     Build a chat message list (system + user) for LLM demand forecasting.
@@ -92,6 +96,39 @@ def build_forecast_prompt(
         lines.append("DAY-OF-WEEK AVERAGES:")
         for day, avg in day_of_week_avg.items():
             lines.append(f"  {day}: {avg:.1f}")
+        lines.append("")
+
+    # ── Per-day feature table ─────────────────────────────────────────────
+    if historical_features:
+        lines.append("HISTORICAL DAILY DATA WITH FEATURES (most recent first):")
+        lines.append("  Date       | Qty    | Mon | DOW | PrevDay | Roll7d")
+        lines.append("  " + "-" * 55)
+        for f in historical_features:
+            pd_ = f.get("prev_day_sales", "")
+            pd_str = f"{pd_:>7.1f}" if pd_ is not None else "     na"
+            r7_ = f.get("rollback_7d", "")
+            r7_str = f"{r7_:>7.1f}" if r7_ is not None else "     na"
+            lines.append(
+                f"  {f['date']} | {f['quantity']:>6.1f} | "
+                f"{f['month']:>3d} | {f['day_of_week']:>3d} | "
+                f"{pd_str} | {r7_str}"
+            )
+        lines.append("")
+
+    if future_features:
+        lines.append("FEATURES FOR FORECAST PERIODS (month/day-of-week are known; prev_day/roll7d only for period 1):")
+        lines.append("  Period | Date       | Mon | DOW | PrevDay     | Roll7d")
+        lines.append("  " + "-" * 60)
+        for f in future_features:
+            pd_ = f.get("prev_day_sales", "")
+            pd_str = f"{pd_:>7.1f}" if pd_ is not None else "  (future)"
+            r7_ = f.get("rollback_7d", "")
+            r7_str = f"{r7_:>7.1f}" if r7_ is not None else "  (future)"
+            lines.append(
+                f"  {f['period']:>6d} | {f['date']} | "
+                f"{f['month']:>3d} | {f['day_of_week']:>3d} | "
+                f"{pd_str:>10s} | {r7_str:>10s}"
+            )
         lines.append("")
 
     lines.append(f"RECENT TREND: {trend}")

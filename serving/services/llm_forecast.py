@@ -79,6 +79,42 @@ def llm_forecast_product(
     daily = df.groupby("ds")["quantity"].sum().reset_index().sort_values("ds")
     daily_series = daily.set_index("ds")["quantity"]
 
+    # ── Feature engineering ───────────────────────────────────────────────
+    feat_df = daily.copy()
+    feat_df["month"] = feat_df["ds"].dt.month
+    feat_df["day_of_week"] = feat_df["ds"].dt.dayofweek
+    feat_df["prev_day_sales"] = feat_df["quantity"].shift(1)
+    feat_df["rollback_7d"] = feat_df["quantity"].rolling(window=7, min_periods=1).sum().shift(1)
+
+    # Historical features (last 60 days, most recent first)
+    recent_feat = feat_df.tail(60).iloc[::-1]
+    historical_features = []
+    for _, row in recent_feat.iterrows():
+        historical_features.append({
+            "date": row["ds"].isoformat()[:10],
+            "quantity": round(float(row["quantity"]), 1),
+            "month": int(row["month"]),
+            "day_of_week": int(row["day_of_week"]),
+            "prev_day_sales": round(float(row["prev_day_sales"]), 1) if pd.notna(row["prev_day_sales"]) else None,
+            "rollback_7d": round(float(row["rollback_7d"]), 1) if pd.notna(row["rollback_7d"]) else None,
+        })
+
+    # Future features for the next `horizon` periods
+    last_date = daily["ds"].max()
+    last_row = feat_df.iloc[-1]
+    future_features = []
+    for i in range(1, horizon + 1):
+        future_date = last_date + pd.Timedelta(days=i)
+        future_features.append({
+            "period": i,
+            "date": future_date.isoformat()[:10],
+            "month": future_date.month,
+            "day_of_week": future_date.dayofweek,
+            "prev_day_sales": round(float(last_row["quantity"]), 1) if i == 1 else None,
+            "rollback_7d": round(float(last_row["rollback_7d"]) if pd.notna(last_row["rollback_7d"]) else 0.0, 1) if i == 1 else None,
+        })
+        last_row = {"quantity": None}
+
     # Statistics
     daily_mean = float(daily_series.mean())
     daily_std = float(daily_series.std())
@@ -131,6 +167,8 @@ def llm_forecast_product(
         last_week_sum=last_week_sum,
         day_of_week_avg=dow_map,
         extra_context=extra_context,
+        historical_features=historical_features,
+        future_features=future_features,
     )
 
     # ── Call LLM ──────────────────────────────────────────────────────────
